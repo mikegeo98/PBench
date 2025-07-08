@@ -2,12 +2,17 @@
     <h3 align="center">PBench</h3>
     <p align="center">A database workload synthesizer</p>
     <p align="center">
+        <a href="#introduction">Introduction</a> •
         <a href="#environment">Environment</a> •
         <a href="#workload">Workload</a> •
         <a href="#usage">Usage</a>
     </p>
 </p>
 
+# Introduction
+
+This repository contains the code for VLDB'25 paper "[PBench: Workload Synthesizer with Real Statistics for Cloud Analytics Benchmarking](https://arxiv.org/abs/2506.16379)". In this paper we introduces a new problem of workload synthesis with real statistics, which aims to generate synthetic workloads that closely approximate real execution statistics, including
+key performance metrics and operator distributions, in real cloud workloads. To address this problem, we propose PBench, a novel workload synthesizer that constructs synthetic workloads by judiciously selecting and combining workload components (i.e., queries and databases) from existing benchmarks.
 
 # Environment
 
