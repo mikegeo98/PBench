@@ -140,7 +140,9 @@ def save_results(config, data):
     """ Save the execution results to a JSON file. """
     workload = config["workload_name"]
     back = "+".join(sorted(config["query"]))
-    res_path = f"./output/replay_ta/{workload}/{back}-results.json"
+    replay_dir = f"./output/replay_ta/{workload}"
+    os.makedirs(replay_dir, exist_ok=True)
+    res_path = f"{replay_dir}/{back}-results.json"
     with open(res_path, "w") as f:
         json.dump(data, f, indent=2)
 
@@ -160,7 +162,9 @@ def load_random_plan(config):
 def save_random_results(config, data):
     workload = config["workload_name"]
     back = "+".join(sorted(config["query"]))
-    res_path = f"./output/replay_sa/{workload}/random-{back}-results.json"
+    replay_dir = f"./output/replay_sa/{workload}"
+    os.makedirs(replay_dir, exist_ok=True)
+    res_path = f"{replay_dir}/random-{back}-results.json"
     with open(res_path, "w") as f:
         json.dump(data, f, indent=2)
 

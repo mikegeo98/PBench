@@ -1,0 +1,76 @@
+services:
+  databend:
+    image: datafuselabs/databend:latest
+    container_name: pbench-databend
+    ports:
+      - "8000:8000"  # HTTP handler port
+      - "9000:9000"  # MySQL handler port
+      - "3307:3307"  # ClickHouse handler port
+    environment:
+      - QUERY_DEFAULT_USER=root
+      - DATABEND_QUERY_FLIGHT_API_ADDRESS=0.0.0.0:9090
+    volumes:
+      - databend-data:/var/lib/databend
+    networks:
+      - pbench-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -u 'root:' -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' --data-raw '{\"sql\":\"select 1\"}' http://localhost:8000/v1/query/ | grep -q 200",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pbench-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - pbench-network
+    depends_on:
+      - databend
+
+  # Seed databases after Databend is healthy (runs once at startup)
+  databend-init:
+    image: curlimages/curl:8.4.0
+    container_name: pbench-databend-init
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "Waiting for databend to accept queries...";
+        until curl -s -u "root:" -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" \
+           --data '{"sql":"select 1"}' http://databend:8000/v1/query/ | grep -q 200; do
+          sleep 2;
+        done;
+        echo "Seeding databases...";
+        /init/init_databases.sh && /init/seed_tables.sh
+    volumes:
+      - ./init_databases.sh:/init/init_databases.sh:ro
+      - ./seed_tables.sh:/init/seed_tables.sh:ro
+    environment:
+      - DATABEND_HOST=databend
+      - DATABEND_PORT=8000
+    depends_on:
+      databend:
+        condition: service_healthy
+    networks:
+      - pbench-network
+
+volumes:
+  databend-data:
+  prometheus-data:
+
+networks:
+  pbench-network:
+    driver: bridge

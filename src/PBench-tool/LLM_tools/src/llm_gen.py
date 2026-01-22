@@ -7,9 +7,7 @@ import time
 from func_timeout import func_set_timeout
 import func_timeout
 
-os.environ["http_proxy"] = "http://localhost:7890"
-os.environ["https_proxy"] = "http://localhost:7890"
-sys.path.append("/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/common")
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
 from sys import api_version
 from dotenv import load_dotenv
 import pandas as pd
@@ -22,7 +20,7 @@ from openai import OpenAI
 from databend_py import Client
 
 import sys
-sys.path.append("/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush")
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../Collect_metrics"))
 from prometheus import prometheus_queries
 
 def get_time():
@@ -325,7 +323,7 @@ def load_config():
 def read_sql_records(query_set, database):
     """Read SQL records from a JSON file."""
     record_file = os.path.join(
-        "/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/one_last_exp/metrics_witho",
+        "../../../Collect_metrics/metrics_witho/output",
         f"{query_set}-{database}-sql-metrics.json",
     )
     with open(record_file, "r") as f:
@@ -843,7 +841,7 @@ def create_operator_vector_based_on_goal(filter_goal,join_goal,agg_goal,sort_goa
     return [new_filter_goal,new_join_goal,new_agg_goal,new_sort_goal]
 
 
-def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal,agg_goal,sort_goal,max_loop=5, output_num=20, output_path="/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/metrics_witho/output/llm-llm-sql-metrics.json", replay=3):
+def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal,agg_goal,sort_goal,max_loop=5, output_num=20, output_path="../../../Collect_metrics/metrics_witho/output/llm-llm-sql-metrics.json", replay=3):
     print(cpu_total_goal,scan_total_goal)
     generated_queries=[]
     positive_pool=create_positive_pool(generated_queries)

@@ -18,7 +18,7 @@ join_error = []
 
 def read_sql_records(query_set, database):
     """ Read SQL records from a JSON file. """
-    record_file = os.path.join(f"/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
+    record_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
     with open(record_file, "r") as f:
         return json.load(f)
 
@@ -257,7 +257,7 @@ def save_plan(config, results):
     """ Save the optimization plan to a JSON file. """
     workload = config["workload_name"]
     back = "+".join(sorted(config["query"]))
-    plan_path = f"/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/output/sa_plan/{workload}/random-{back}-plan2.json"
+    plan_path = f"./output/sa_plan/{workload}/random-{back}-plan2.json"
     with open(plan_path, "w") as f:
         json.dump(results, f, indent=2)
 
@@ -266,7 +266,7 @@ def load_plan(config):
     """ Load the execution plan from a JSON file. """
     workload_name = config["workload_name"]
     back = "+".join(sorted(config["query"]))
-    plan_path = f"/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/output/plan/{workload_name}/{back}-plan.json"    
+    plan_path = f"./output/plan/{workload_name}/{back}-plan.json"    
     with open(plan_path, "r") as f:
         return json.load(f)
 

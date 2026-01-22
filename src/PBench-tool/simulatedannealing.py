@@ -256,7 +256,9 @@ def save_plan(config, results):
     """ Save the optimization plan to a JSON file. """
     workload = config["workload_name"]
     back = "+".join(sorted(config["query"]))
-    plan_path = f"./output/sa_plan/{workload}/{back}-plan2.json"
+    plan_dir = f"./output/sa_plan/{workload}"
+    os.makedirs(plan_dir, exist_ok=True)
+    plan_path = f"{plan_dir}/{back}-plan2.json"
     with open(plan_path, "w") as f:
         json.dump(results, f, indent=2)
 

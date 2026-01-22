@@ -25,7 +25,7 @@ def seed_everything(seed: int):
 
 def load_data():
     """ Load data from a JSON file and preprocess it. """
-    data_file = f"/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/baseline_test/stitcher/profile.json"
+    data_file = f"./profile.json"
     with open(data_file, "r") as f:
         data = json.load(f)
 
@@ -57,7 +57,7 @@ def load_data():
     return profile, benchmarks
 
 def load_data_from_single_benchmark(benchmark_name):
-    data_file = f"/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/baseline_test/stitcher/train_data/{benchmark_name}.json"
+    data_file = f"./train_data/{benchmark_name}.json"
     with open(data_file, "r") as f:
         data = json.load(f)
 

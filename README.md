@@ -2,12 +2,17 @@
     <h3 align="center">PBench</h3>
     <p align="center">A database workload synthesizer</p>
     <p align="center">
+        <a href="#quick-start">Quick Start</a> •
         <a href="#introduction">Introduction</a> •
         <a href="#environment">Environment</a> •
         <a href="#workload">Workload</a> •
         <a href="#usage">Usage</a>
     </p>
 </p>
+
+# Quick Start
+
+See [HOW_TO_RUN.md](HOW_TO_RUN.md) for complete setup and usage instructions.
 
 # Introduction
 

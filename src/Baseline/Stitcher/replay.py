@@ -5,14 +5,14 @@ import random
 import time
 from datetime import datetime
 
-from common.prometheus import prometheus_queries
+# from common.prometheus import prometheus_queries
 # from common.record_time import get_time
 from dotenv import load_dotenv
 
 from .driver import BenchmarkDriver
 
 import sys
-sys.path.append("/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/metrics_witho")
+sys.path.append("../../Collect_metrics")
 from prometheus import prometheus_queries
 
 def get_time():
@@ -38,7 +38,7 @@ def load_config():
 
 def load_benchmark_configurations(plan, config):
     workload_name = config["workload_name"]
-    plan_file = f"/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/baseline_test/stitcher/output/{workload_name}/{plan}-plan.json"
+    plan_file = f"./output/{workload_name}/{plan}-plan.json"
     with open(plan_file, "r") as f:
         return json.load(f)
 
@@ -124,7 +124,7 @@ def _end_benchmark(drivers, config):
 def _output_results(plan, data, config):
     """ Output the results to a file. """
     workload_name = config["workload_name"]
-    record_file = f"/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/baseline_test/stitcher/output/{workload_name}/{plan}-results.json"
+    record_file = f"./output/{workload_name}/{plan}-results.json"
     with open(record_file, "w") as f:
         json.dump(data, f, indent=2)
     print("-" * os.get_terminal_size().columns)

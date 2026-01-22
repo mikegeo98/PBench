@@ -9,7 +9,7 @@ from CAB.cab_replay import *
 
 if __name__ == '__main__': 
     
-    directory = '/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/rushrush/baseline_test/configs'
+    directory = './configs'
     for root, dirs, files in os.walk(directory):
         for file in files:
             if file.endswith('.yml'):

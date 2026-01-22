@@ -185,7 +185,10 @@ def generate_workload(config,is_test):
             total_MAPE = (cpu_diff + scan_diff + Filter_diff + Join_diff + Agg_diff + Sort_diff) / 6
             
             print(f"MAPE     : CPU: {cpu_diff:.2f}, Scan: {scan_diff:.2f}, Duration: {duration_diff:.2f}, Filter: {Filter_diff:.2f}, Join:{Join_diff:.2f},Agg:{Agg_diff:.2f},Sort:{Sort_diff:.2f},total_MAPE:{total_MAPE:.2f}")
-            print("-" * os.get_terminal_size().columns)
+            try:
+                print("-" * os.get_terminal_size().columns)
+            except OSError:
+                print("-" * 80)  # Fallback for non-terminal environments
             times=0
             # llm code need to be updated
             while times > 0 and total_MAPE > 0.1:
@@ -284,7 +287,9 @@ def save_plan(config, results):
     """ Save the optimization plan to a JSON file. """
     workload_name = config["workload_name"]
     back = "+".join(sorted(config["query"]))
-    plan_path = f"./output/plan/{workload_name}/{back}-plan.json"
+    plan_dir = f"./output/plan/{workload_name}"
+    os.makedirs(plan_dir, exist_ok=True)
+    plan_path = f"{plan_dir}/{back}-plan.json"
     with open(plan_path, "w") as f:
         json.dump(results, f, indent=2)
     # reopen the file and delete the \\" in the file

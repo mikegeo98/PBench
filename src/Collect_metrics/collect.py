@@ -3,11 +3,23 @@ import os
 import re
 import time
 from datetime import datetime
+from pathlib import Path
+import sys
 
-from common.prometheus import prometheus_queries
-from record_time import get_time
 from databend_py import Client
 from dotenv import load_dotenv
+
+# Make sure the repo's `src` directory is on the import path so we can reuse utils.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+from utils.prometheus import prometheus_queries
+
+
+def get_time():
+    """Return a timestamp (seconds since epoch)."""
+    return time.time()
 
 
 def load_config():
@@ -50,7 +62,7 @@ def load_query_set(query_set):
 def load_query_from_json(path):
     with open(path, "r") as file:
         return json.load(file)
-    
+
 
 def execute_query(host, port, query, database):
     # if there are more than one query in the file, only execute them one by one
@@ -104,7 +116,8 @@ def save_data_to_file(data, record_file):
 def record_operator(host, databend_port, query,database):
     """ Record the operators used in the query. """
     operator_keywords = {
-        "filter": "Filter",
+        # Databend plans often show pushdown filters as "filters:" in TableScan nodes.
+        "filter": "filters:",
         "join": "HashJoin",
         "agg": "AggregateFinal",
         "sort": "Sort"
@@ -112,7 +125,11 @@ def record_operator(host, databend_port, query,database):
     plan = execute_query(host, databend_port, query,database)
     operator_flag = {}
     for i in range(len(plan)):
-        tmp = '\n'.join([row[0] for row in plan[i][2]])
+        # databend-py returns (result_rows, plan_rows) for EXPLAIN ANALYZE in recent versions.
+        plan_rows = plan[i][1] if len(plan[i]) > 1 else []
+        if not plan_rows:
+            print("Warning: no plan rows returned for this query {plan[i]}; operator flags may be incomplete.")
+        tmp = '\n'.join([row[0] for row in plan_rows if row])
         for operator, keyword in operator_keywords.items():
             if keyword in tmp:
                 operator_flag[operator] = 1
@@ -123,9 +140,10 @@ def record_operator(host, databend_port, query,database):
 
 def main():
     config = load_config()
-    
-    record_file = "/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/one_last_exp/metrics_witho/llm-llm-sql-metrics.json"
-    src = "/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/one_last_exp/metrics_witho/llm1-llm1-sql-metrics.json"
+
+    record_file = "./metrics_witho/output/llm-llm-sql-metrics.json"
+
+    src = "./metrics_witho/input/llm1-llm1-sql-metrics.json"
     sql_statements = load_query_from_json(src)
     data = []
 
@@ -150,7 +168,10 @@ def main():
             print(f"Total time: {duration}")
             print(f"Total cputime: {cputime}")
             print(f"Total scan: {scan}")
-            print("-" * os.get_terminal_size().columns)
+            try:
+                print("-" * os.get_terminal_size().columns)
+            except OSError:
+                print("-" * 80)
         total_cputime = total_cputime / repeat
         total_scan = total_scan / repeat
         total_duration = total_duration / repeat

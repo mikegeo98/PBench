@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# PBench specific
+# Output directories (generated files)
+src/PBench-tool/output/
+src/Baseline/CAB/output/
+src/Baseline/CAB/tmp_res/
+src/Baseline/Stitcher/output/
+
+# Docker volumes
+databend-data/
+prometheus-data/
+
+# Logs
+*.log
+
+# Keep the structure but ignore user-provided data
+!src/Collect_metrics/metrics_witho/output/.gitkeep
+!Workloads/Snowset/.gitkeep

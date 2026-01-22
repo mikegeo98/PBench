@@ -19,6 +19,8 @@ def query_prometheus(host, port, time, query):
 prometheus_queries = {
     # "cpu_new": partial(query_prometheus, query="sum(databend_process_cpu_seconds_total_total)"),
     "cpu_new": partial(query_prometheus, query="sum(max(databend_process_cpu_seconds_total_total) by (instance))"),
+    # Alias for collectors that expect key "cpu"
+    "cpu": partial(query_prometheus, query="sum(max(databend_process_cpu_seconds_total_total) by (instance))"),
     # "cpu_new": partial(query_prometheus, query="sum(node_cpu_seconds_total{mode=~\"system|user\"})"),
     # "scan": partial(query_prometheus, query="sum(databend_query_scan_bytes_total)")
     "scan": partial(query_prometheus, query="sum(max(databend_query_scan_bytes_total) by (instance))")
