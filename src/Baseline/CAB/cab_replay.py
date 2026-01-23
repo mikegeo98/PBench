@@ -5,14 +5,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import numpy as np
-from prometheus import prometheus_queries
 from databend_py import Client
 from dotenv import load_dotenv
 import subprocess
-
 import re
-
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from utils.prometheus import prometheus_queries
 
 def get_time():
     # get local time

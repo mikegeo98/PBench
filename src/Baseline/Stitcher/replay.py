@@ -12,8 +12,9 @@ from dotenv import load_dotenv
 from .driver import BenchmarkDriver
 
 import sys
-sys.path.append("../../Collect_metrics")
-from prometheus import prometheus_queries
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from utils.prometheus import prometheus_queries
 
 def get_time():
     # get local time
