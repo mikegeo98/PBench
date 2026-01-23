@@ -22,6 +22,9 @@ cd PBench
 ### 2. Set Up Python Virtual Environment
 
 ```bash
+# Use uv
+uv sync
+# or standard venv
 python3.10 -m venv .venv
 source .venv/bin/activate  # On Linux/Mac, or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
@@ -33,18 +36,17 @@ pip install -r requirements.txt
 docker compose up -d
 ```
 
+The `databend-init` container waits for Databend to be healthy and then runs `databend-init/run_ddl.py` to apply the benchmark DDLs (TPCH, TPCDS, IMDB/JOB) once.
+
 Wait for containers to be healthy (~15-30 seconds):
 ```bash
 docker compose ps
 ```
-
-The required database should be automatically created based on the following script.
-
+If you need to rerun the DDLs manually (e.g., after resetting Databend data):
 ```bash
-./init_databases.sh
+cd databend-init
+python run_ddl.py --host localhost --port 8000
 ```
-
-The script creates the required TPCH, TPCDS, IMDB, and LLM databases.
 
 ## Running PBench
 
@@ -66,7 +68,7 @@ This will:
 
 The baseline module supports CAB and Stitcher.
 
-#### 1. Initialize Benchmark Tables
+#### 1. Initialize Benchmark Tables (Optional, if not done during container initialization)
 
 First, create the benchmark tables in Databend:
 

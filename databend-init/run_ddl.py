@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Execute DDL SQL files against Databend."""
+import argparse
 import json
+import os
 import re
 import sys
 import requests
 from pathlib import Path
 
 
-def execute_sql(sql: str, host: str = "localhost", port: int = 8000) -> dict:
+def execute_sql(sql: str, host: str, port: int) -> dict:
     """Execute a single SQL statement."""
     url = f"http://{host}:{port}/v1/query/"
     headers = {"Content-Type": "application/json"}
@@ -20,7 +22,7 @@ def execute_sql(sql: str, host: str = "localhost", port: int = 8000) -> dict:
     return response.json()
 
 
-def run_ddl_file(filepath: Path, verbose: bool = True):
+def run_ddl_file(filepath: Path, host: str, port: int, verbose: bool = True):
     """Run all SQL statements from a DDL file."""
     content = filepath.read_text()
 
@@ -47,7 +49,7 @@ def run_ddl_file(filepath: Path, verbose: bool = True):
         # Get a short description of the statement
         first_line = stmt.split('\n')[0][:60]
 
-        result = execute_sql(stmt)
+        result = execute_sql(stmt, host=host, port=port)
 
         if result.get("error"):
             error_msg = result["error"].get("message", "Unknown error")
@@ -66,7 +68,24 @@ def run_ddl_file(filepath: Path, verbose: bool = True):
     return success_count, error_count
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run DDL files against Databend.")
+    parser.add_argument(
+        "--host",
+        default=os.getenv("DATABEND_HOST", "localhost"),
+        help="Databend host (default: env DATABEND_HOST or localhost)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("DATABEND_PORT", 8000)),
+        help="Databend HTTP port (default: env DATABEND_PORT or 8000)",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     ddl_dir = Path(__file__).parent
 
     # Run DDL files in order
@@ -76,7 +95,7 @@ def main():
     total_errors = 0
 
     for ddl_file in ddl_files:
-        success, errors = run_ddl_file(ddl_file)
+        success, errors = run_ddl_file(ddl_file, host=args.host, port=args.port)
         total_success += success
         total_errors += errors
 
