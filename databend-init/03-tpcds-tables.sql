@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS tpcds1g.customer (
     c_birth_country VARCHAR(20),
     c_login VARCHAR(13),
     c_email_address VARCHAR(50),
-    c_last_review_date VARCHAR(10)
+    c_last_review_date_sk INT
 );
 
 CREATE TABLE IF NOT EXISTS tpcds1g.customer_address (
@@ -183,6 +183,143 @@ CREATE TABLE IF NOT EXISTS tpcds1g.promotion (
     p_channel_details VARCHAR(100),
     p_purpose VARCHAR(15),
     p_discount_active VARCHAR(1)
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.call_center (
+    cc_call_center_sk INT NOT NULL,
+    cc_call_center_id VARCHAR(16) NOT NULL,
+    cc_rec_start_date DATE,
+    cc_rec_end_date DATE,
+    cc_closed_date_sk INT,
+    cc_open_date_sk INT,
+    cc_name VARCHAR(50),
+    cc_class VARCHAR(50),
+    cc_employees INT,
+    cc_sq_ft INT,
+    cc_hours VARCHAR(20),
+    cc_manager VARCHAR(40),
+    cc_mkt_id INT,
+    cc_mkt_class VARCHAR(50),
+    cc_mkt_desc VARCHAR(100),
+    cc_market_manager VARCHAR(40),
+    cc_division INT,
+    cc_division_name VARCHAR(50),
+    cc_company INT,
+    cc_company_name VARCHAR(50),
+    cc_street_number VARCHAR(10),
+    cc_street_name VARCHAR(60),
+    cc_street_type VARCHAR(15),
+    cc_suite_number VARCHAR(10),
+    cc_city VARCHAR(60),
+    cc_county VARCHAR(30),
+    cc_state VARCHAR(2),
+    cc_zip VARCHAR(10),
+    cc_country VARCHAR(20),
+    cc_gmt_offset DECIMAL(5,2),
+    cc_tax_percentage DECIMAL(5,2)
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.catalog_page (
+    cp_catalog_page_sk INT NOT NULL,
+    cp_catalog_page_id VARCHAR(16) NOT NULL,
+    cp_start_date_sk INT,
+    cp_end_date_sk INT,
+    cp_department VARCHAR(50),
+    cp_catalog_number INT,
+    cp_catalog_page_number INT,
+    cp_description VARCHAR(100),
+    cp_type VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.income_band (
+    ib_income_band_sk INT NOT NULL,
+    ib_lower_bound INT,
+    ib_upper_bound INT
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.inventory (
+    inv_date_sk INT NOT NULL,
+    inv_item_sk INT NOT NULL,
+    inv_warehouse_sk INT NOT NULL,
+    inv_quantity_on_hand INT
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.reason (
+    r_reason_sk INT NOT NULL,
+    r_reason_id VARCHAR(16) NOT NULL,
+    r_reason_desc VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.ship_mode (
+    sm_ship_mode_sk INT NOT NULL,
+    sm_ship_mode_id VARCHAR(16) NOT NULL,
+    sm_type VARCHAR(30),
+    sm_code VARCHAR(10),
+    sm_carrier VARCHAR(20),
+    sm_contract VARCHAR(20)
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.warehouse (
+    w_warehouse_sk INT NOT NULL,
+    w_warehouse_id VARCHAR(16) NOT NULL,
+    w_warehouse_name VARCHAR(20),
+    w_warehouse_sq_ft INT,
+    w_street_number VARCHAR(10),
+    w_street_name VARCHAR(60),
+    w_street_type VARCHAR(15),
+    w_suite_number VARCHAR(10),
+    w_city VARCHAR(60),
+    w_county VARCHAR(30),
+    w_state VARCHAR(2),
+    w_zip VARCHAR(10),
+    w_country VARCHAR(20),
+    w_gmt_offset DECIMAL(5,2)
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.web_page (
+    wp_web_page_sk INT NOT NULL,
+    wp_web_page_id VARCHAR(16) NOT NULL,
+    wp_rec_start_date DATE,
+    wp_rec_end_date DATE,
+    wp_creation_date_sk INT,
+    wp_access_date_sk INT,
+    wp_autogen_flag VARCHAR(1),
+    wp_customer_sk INT,
+    wp_url VARCHAR(100),
+    wp_type VARCHAR(50),
+    wp_char_count INT,
+    wp_link_count INT,
+    wp_image_count INT,
+    wp_max_ad_count INT
+);
+
+CREATE TABLE IF NOT EXISTS tpcds1g.web_site (
+    web_site_sk INT NOT NULL,
+    web_site_id VARCHAR(16) NOT NULL,
+    web_rec_start_date DATE,
+    web_rec_end_date DATE,
+    web_name VARCHAR(50),
+    web_open_date_sk INT,
+    web_close_date_sk INT,
+    web_class VARCHAR(50),
+    web_manager VARCHAR(40),
+    web_mkt_id INT,
+    web_mkt_class VARCHAR(50),
+    web_mkt_desc VARCHAR(100),
+    web_market_manager VARCHAR(40),
+    web_company_id INT,
+    web_company_name VARCHAR(50),
+    web_street_number VARCHAR(10),
+    web_street_name VARCHAR(60),
+    web_street_type VARCHAR(15),
+    web_suite_number VARCHAR(10),
+    web_city VARCHAR(60),
+    web_county VARCHAR(30),
+    web_state VARCHAR(2),
+    web_zip VARCHAR(10),
+    web_country VARCHAR(20),
+    web_gmt_offset DECIMAL(5,2),
+    web_tax_percentage DECIMAL(5,2)
 );
 
 -- Fact Tables
@@ -377,6 +514,15 @@ CREATE TABLE IF NOT EXISTS tpcds2g.customer_demographics LIKE tpcds1g.customer_d
 CREATE TABLE IF NOT EXISTS tpcds2g.household_demographics LIKE tpcds1g.household_demographics;
 CREATE TABLE IF NOT EXISTS tpcds2g.store LIKE tpcds1g.store;
 CREATE TABLE IF NOT EXISTS tpcds2g.promotion LIKE tpcds1g.promotion;
+CREATE TABLE IF NOT EXISTS tpcds2g.call_center LIKE tpcds1g.call_center;
+CREATE TABLE IF NOT EXISTS tpcds2g.catalog_page LIKE tpcds1g.catalog_page;
+CREATE TABLE IF NOT EXISTS tpcds2g.income_band LIKE tpcds1g.income_band;
+CREATE TABLE IF NOT EXISTS tpcds2g.inventory LIKE tpcds1g.inventory;
+CREATE TABLE IF NOT EXISTS tpcds2g.reason LIKE tpcds1g.reason;
+CREATE TABLE IF NOT EXISTS tpcds2g.ship_mode LIKE tpcds1g.ship_mode;
+CREATE TABLE IF NOT EXISTS tpcds2g.warehouse LIKE tpcds1g.warehouse;
+CREATE TABLE IF NOT EXISTS tpcds2g.web_page LIKE tpcds1g.web_page;
+CREATE TABLE IF NOT EXISTS tpcds2g.web_site LIKE tpcds1g.web_site;
 CREATE TABLE IF NOT EXISTS tpcds2g.store_sales LIKE tpcds1g.store_sales;
 CREATE TABLE IF NOT EXISTS tpcds2g.store_returns LIKE tpcds1g.store_returns;
 CREATE TABLE IF NOT EXISTS tpcds2g.catalog_sales LIKE tpcds1g.catalog_sales;
