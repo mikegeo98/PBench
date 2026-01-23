@@ -64,11 +64,69 @@ This will:
 
 ### Run Baseline Experiments
 
+The baseline module supports CAB and Stitcher.
+
+#### 1. Initialize Benchmark Tables
+
+First, create the benchmark tables in Databend:
+
+```bash
+cd databend-init
+python run_ddl.py
+```
+
+This executes the DDL scripts to create tables for TPC-H, TPC-DS, and IMDB/JOB benchmarks.
+
+#### 2. Configure Your Experiment
+
+Create a YAML config file in `src/Baseline/configs/`. Example:
+
+```yaml
+workload_path: ../../src/Workloads/Snowset/workload1h-5m-30s_1.csv
+workload_name: my-experiment
+host: localhost
+databend_port: 8000
+prometheus_port: 9091
+count_limit: 100
+time_limit: 60
+use_operator: 1
+wait: 2
+interval: 10
+query:
+  - TPCH
+  - imdb
+db:
+  - tpch1g
+  - imdb
+op_scale: 100
+initial_count: 5
+use_duration: 0
+seed: 42
+iter: 5                    # Bayesian optimization iterations
+seconds_in_time_slot: 60
+plan: stitcher             # Options: stitcher, cab
+```
+
+**Available query pools:**
+| Query Pool | Database | Description |
+|------------|----------|-------------|
+| `TPCH` | `tpch1g`, `tpch5g`, etc. | TPC-H benchmark queries |
+| `tpcds_all` | `tpcds1g`, `tpcds2g` | TPC-DS benchmark queries |
+| `imdb` | `imdb` | Join Order Benchmark (JOB) queries |
+
+#### 3. Run the Baseline
+
 ```bash
 source .venv/bin/activate
 cd src/Baseline
 python do_baseline.py
 ```
+
+The script processes all configs in `src/Baseline/configs/` and runs:
+- **CAB**: Generates and replays workload plans based on configuration
+- **Stitcher**: Uses Bayesian optimization to find optimal workload configurations
+
+Output plans are saved to `src/Baseline/output/`.
 
 ### Collect Metrics
 
