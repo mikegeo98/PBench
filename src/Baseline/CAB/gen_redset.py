@@ -7,7 +7,7 @@ import pandas as pd
 
 def read_sql_records(query_set, database):
     """ Read SQL records from a JSON file. """
-    record_file = f"../../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json"
+    record_file = f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json"
     with open(record_file, "r") as f:
         return json.load(f)
 
@@ -16,7 +16,7 @@ def save_plan(config, results):
     """ Save the optimization plan to a JSON file. """
     workload_name = config["workload_name"]
     plan_path = f"./output/{workload_name}/{'+'.join(sorted(config['query']))}-plan.json"
-    with open(plan_path, "a") as f:
+    with open(plan_path, "w") as f:
         json.dump(results, f, indent=2)
 
 

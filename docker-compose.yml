@@ -4,7 +4,7 @@ services:
     container_name: pbench-databend
     ports:
       - "8000:8000"  # HTTP handler port
-      - "9000:9000"  # MySQL handler port
+      - "9010:9000"  # MySQL handler port (mapped to 9010 to avoid conflict)
       - "3307:3307"  # ClickHouse handler port
     environment:
       - QUERY_DEFAULT_USER=root

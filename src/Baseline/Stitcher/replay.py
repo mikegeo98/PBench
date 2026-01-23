@@ -128,7 +128,10 @@ def _output_results(plan, data, config):
     record_file = f"./output/{workload_name}/{plan}-results.json"
     with open(record_file, "w") as f:
         json.dump(data, f, indent=2)
-    print("-" * os.get_terminal_size().columns)
+    try:
+        print("-" * os.get_terminal_size().columns)
+    except OSError:
+        print("-" * 80)
 
 def main():
     config = load_config()
@@ -143,6 +146,7 @@ def do_stitcher_replay(in_config):
     config["seconds_in_time_slot"] = in_config["seconds_in_time_slot"]
     config["workload_name"] = in_config["workload_name"]
     config["interval"] = in_config["interval"]
+    config["plan"] = in_config["plan"]
     benchmark_configurations = load_benchmark_configurations(config["plan"], config)
     execute_benchmarks(benchmark_configurations, config)
 

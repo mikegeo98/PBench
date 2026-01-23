@@ -92,7 +92,7 @@ def execute_threads(config, sql_per_time_interval):
     with ThreadPoolExecutor(max_workers=None) as executor:
         futures = []
         for queries in sql_per_time_interval:
-            query, database = queries['query_id'].split("@")
+            query, database = queries['query_id'].rsplit("@", 1)
             query = query.split(";")
             # make sure the last query is not empty
             if query[-1] == "":
