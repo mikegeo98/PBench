@@ -1,0 +1,222 @@
+[
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_0 AS t1 JOIN tpcds1g.table_1 AS t2 USING (id) WHERE t1.col1 > 0 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 81478.1063121557,
+    "avg_scan_bytes": 36664402.11516529,
+    "avg_duration": 2.015866528902386,
+    "filter": 5,
+    "join": 1,
+    "agg": 1,
+    "sort": 2,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_1 AS t1 JOIN tpcds1g.table_2 AS t2 USING (id) WHERE t1.col1 > 1 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 3279.0109659666737,
+    "avg_scan_bytes": 330322519.53132033,
+    "avg_duration": 1.962696644732792,
+    "filter": 5,
+    "join": 4,
+    "agg": 1,
+    "sort": 2,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_2 AS t1 JOIN tpcds1g.table_3 AS t2 USING (id) WHERE t1.col1 > 2 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 2327.578794226433,
+    "avg_scan_bytes": 306596727.66607285,
+    "avg_duration": 13.309539097886425,
+    "filter": 2,
+    "join": 3,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_3 AS t1 JOIN tpcds1g.table_4 AS t2 USING (id) WHERE t1.col1 > 3 GROUP BY t1.col2",
+    "avg_cpu_time": 1998.703470808139,
+    "avg_scan_bytes": 1149805330.1147988,
+    "avg_duration": 23.059369810415866,
+    "filter": 3,
+    "join": 4,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_4 AS t1 JOIN tpcds1g.table_0 AS t2 USING (id) WHERE t1.col1 > 4 GROUP BY t1.col2",
+    "avg_cpu_time": 2473.5059065298456,
+    "avg_scan_bytes": 404956109.21015304,
+    "avg_duration": 6.501240809798606,
+    "filter": 2,
+    "join": 1,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_0 AS t1 JOIN tpcds1g.table_1 AS t2 USING (id) WHERE t1.col1 > 5 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 35606.12519726457,
+    "avg_scan_bytes": 1202479823.626855,
+    "avg_duration": 61.42584524659494,
+    "filter": 4,
+    "join": 3,
+    "agg": 2,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_1 AS t1 JOIN tpcds1g.table_2 AS t2 USING (id) WHERE t1.col1 > 6 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 2640.4949644325525,
+    "avg_scan_bytes": 39118840161.98416,
+    "avg_duration": 13.346630463784441,
+    "filter": 2,
+    "join": 4,
+    "agg": 2,
+    "sort": 2,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_2 AS t1 JOIN tpcds1g.table_3 AS t2 USING (id) WHERE t1.col1 > 7 GROUP BY t1.col2",
+    "avg_cpu_time": 1199.634059684041,
+    "avg_scan_bytes": 3378260855.4329987,
+    "avg_duration": 25.14974633827439,
+    "filter": 6,
+    "join": 1,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_3 AS t1 JOIN tpcds1g.table_4 AS t2 USING (id) WHERE t1.col1 > 8 GROUP BY t1.col2",
+    "avg_cpu_time": 19951.906987266928,
+    "avg_scan_bytes": 951817053.2596612,
+    "avg_duration": 10.990348976049257,
+    "filter": 6,
+    "join": 2,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_4 AS t1 JOIN tpcds1g.table_0 AS t2 USING (id) WHERE t1.col1 > 9 GROUP BY t1.col2",
+    "avg_cpu_time": 4042.7547062881367,
+    "avg_scan_bytes": 16687687356.29232,
+    "avg_duration": 13.925260467005316,
+    "filter": 5,
+    "join": 1,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_0 AS t1 JOIN tpcds1g.table_1 AS t2 USING (id) WHERE t1.col1 > 10 GROUP BY t1.col2",
+    "avg_cpu_time": 989.8133149938678,
+    "avg_scan_bytes": 697460826.7375432,
+    "avg_duration": 3.485143585497073,
+    "filter": 6,
+    "join": 1,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_1 AS t1 JOIN tpcds1g.table_2 AS t2 USING (id) WHERE t1.col1 > 11 GROUP BY t1.col2",
+    "avg_cpu_time": 10690.932152326886,
+    "avg_scan_bytes": 125593027.03020436,
+    "avg_duration": 3.1620669091752944,
+    "filter": 5,
+    "join": 4,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_2 AS t1 JOIN tpcds1g.table_3 AS t2 USING (id) WHERE t1.col1 > 12 GROUP BY t1.col2",
+    "avg_cpu_time": 8798.54568401632,
+    "avg_scan_bytes": 45917793.76460161,
+    "avg_duration": 2.9407696936398944,
+    "filter": 2,
+    "join": 2,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_3 AS t1 JOIN tpcds1g.table_4 AS t2 USING (id) WHERE t1.col1 > 13 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 361621.96226046275,
+    "avg_scan_bytes": 524638746.4343103,
+    "avg_duration": 1.5950543260136067,
+    "filter": 3,
+    "join": 3,
+    "agg": 2,
+    "sort": 2,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_4 AS t1 JOIN tpcds1g.table_0 AS t2 USING (id) WHERE t1.col1 > 14 GROUP BY t1.col2",
+    "avg_cpu_time": 48896.063174809206,
+    "avg_scan_bytes": 5096358782.555063,
+    "avg_duration": 9.596016560407618,
+    "filter": 5,
+    "join": 2,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_0 AS t1 JOIN tpcds1g.table_1 AS t2 USING (id) WHERE t1.col1 > 15 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 15921.940070622346,
+    "avg_scan_bytes": 3003437250.4244633,
+    "avg_duration": 3.4923769954848516,
+    "filter": 5,
+    "join": 3,
+    "agg": 2,
+    "sort": 2,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_1 AS t1 JOIN tpcds1g.table_2 AS t2 USING (id) WHERE t1.col1 > 16 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 2365.579978956667,
+    "avg_scan_bytes": 131613108.67623904,
+    "avg_duration": 4.03571594904261,
+    "filter": 4,
+    "join": 3,
+    "agg": 2,
+    "sort": 2,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_2 AS t1 JOIN tpcds1g.table_3 AS t2 USING (id) WHERE t1.col1 > 17 GROUP BY t1.col2",
+    "avg_cpu_time": 7708.875865833724,
+    "avg_scan_bytes": 1486492206.11968,
+    "avg_duration": 6.153164295390324,
+    "filter": 6,
+    "join": 4,
+    "agg": 2,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpcds1g.table_3 AS t1 JOIN tpcds1g.table_4 AS t2 USING (id) WHERE t1.col1 > 18 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 14118.658827453735,
+    "avg_scan_bytes": 163799797.80866155,
+    "avg_duration": 1.53327425682824,
+    "filter": 7,
+    "join": 2,
+    "agg": 1,
+    "sort": 2,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpcds1g.table_4 AS t1 JOIN tpcds1g.table_0 AS t2 USING (id) WHERE t1.col1 > 19 GROUP BY t1.col2",
+    "avg_cpu_time": 13200.192598176216,
+    "avg_scan_bytes": 11298361.22980324,
+    "avg_duration": 3.201664113654541,
+    "filter": 4,
+    "join": 1,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  }
+]

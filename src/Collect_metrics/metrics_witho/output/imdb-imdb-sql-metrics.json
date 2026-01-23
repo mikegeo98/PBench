@@ -1,0 +1,222 @@
+[
+  {
+    "query": "SELECT * FROM imdb.table_0 AS t1 JOIN imdb.table_1 AS t2 USING (id) WHERE t1.col1 > 0",
+    "avg_cpu_time": 3950.7102167471235,
+    "avg_scan_bytes": 5981910667.763238,
+    "avg_duration": 3.432368635529639,
+    "filter": 7,
+    "join": 5,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_1 AS t1 JOIN imdb.table_2 AS t2 USING (id) WHERE t1.col1 > 1 GROUP BY t1.col2",
+    "avg_cpu_time": 602.3778419084706,
+    "avg_scan_bytes": 4240525891.4292846,
+    "avg_duration": 1.9704871700819881,
+    "filter": 9,
+    "join": 6,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_2 AS t1 JOIN imdb.table_3 AS t2 USING (id) WHERE t1.col1 > 2",
+    "avg_cpu_time": 4217.440418370091,
+    "avg_scan_bytes": 4685880.013882989,
+    "avg_duration": 4.797868088601887,
+    "filter": 8,
+    "join": 6,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_3 AS t1 JOIN imdb.table_4 AS t2 USING (id) WHERE t1.col1 > 3 GROUP BY t1.col2",
+    "avg_cpu_time": 18554.793400800434,
+    "avg_scan_bytes": 43739301428.748535,
+    "avg_duration": 7.6595728299000365,
+    "filter": 8,
+    "join": 5,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_4 AS t1 JOIN imdb.table_0 AS t2 USING (id) WHERE t1.col1 > 4",
+    "avg_cpu_time": 1612.6884870417637,
+    "avg_scan_bytes": 70720278.7017074,
+    "avg_duration": 5.411910850330556,
+    "filter": 5,
+    "join": 7,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_0 AS t1 JOIN imdb.table_1 AS t2 USING (id) WHERE t1.col1 > 5 GROUP BY t1.col2",
+    "avg_cpu_time": 2622.7561898735016,
+    "avg_scan_bytes": 6264013259.867324,
+    "avg_duration": 2.9450109296563443,
+    "filter": 7,
+    "join": 4,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_1 AS t1 JOIN imdb.table_2 AS t2 USING (id) WHERE t1.col1 > 6 GROUP BY t1.col2",
+    "avg_cpu_time": 827.8471633766811,
+    "avg_scan_bytes": 1206051746.4099522,
+    "avg_duration": 4.986435523681399,
+    "filter": 7,
+    "join": 7,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_2 AS t1 JOIN imdb.table_3 AS t2 USING (id) WHERE t1.col1 > 7",
+    "avg_cpu_time": 14915.288138910317,
+    "avg_scan_bytes": 58377614.70738633,
+    "avg_duration": 1.1635246908828902,
+    "filter": 8,
+    "join": 4,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_3 AS t1 JOIN imdb.table_4 AS t2 USING (id) WHERE t1.col1 > 8 GROUP BY t1.col2",
+    "avg_cpu_time": 2063.264892155888,
+    "avg_scan_bytes": 119327783.92817129,
+    "avg_duration": 8.956925817669513,
+    "filter": 6,
+    "join": 7,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_4 AS t1 JOIN imdb.table_0 AS t2 USING (id) WHERE t1.col1 > 9",
+    "avg_cpu_time": 8175.536643052455,
+    "avg_scan_bytes": 838585258.0875092,
+    "avg_duration": 20.761790272571368,
+    "filter": 7,
+    "join": 6,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_0 AS t1 JOIN imdb.table_1 AS t2 USING (id) WHERE t1.col1 > 10",
+    "avg_cpu_time": 22029.96310254139,
+    "avg_scan_bytes": 1504096617.9493787,
+    "avg_duration": 1.3787395911609426,
+    "filter": 4,
+    "join": 4,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_1 AS t1 JOIN imdb.table_2 AS t2 USING (id) WHERE t1.col1 > 11 GROUP BY t1.col2",
+    "avg_cpu_time": 27443.177302363372,
+    "avg_scan_bytes": 503910026.192096,
+    "avg_duration": 1.9722713044295441,
+    "filter": 3,
+    "join": 6,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_2 AS t1 JOIN imdb.table_3 AS t2 USING (id) WHERE t1.col1 > 12",
+    "avg_cpu_time": 1855.1838219133392,
+    "avg_scan_bytes": 70112437.27644454,
+    "avg_duration": 1.505025878757987,
+    "filter": 5,
+    "join": 5,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_3 AS t1 JOIN imdb.table_4 AS t2 USING (id) WHERE t1.col1 > 13 GROUP BY t1.col2",
+    "avg_cpu_time": 597.668608947809,
+    "avg_scan_bytes": 6343665688.149106,
+    "avg_duration": 2.011356363287832,
+    "filter": 3,
+    "join": 4,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_4 AS t1 JOIN imdb.table_0 AS t2 USING (id) WHERE t1.col1 > 14",
+    "avg_cpu_time": 193.62545423719985,
+    "avg_scan_bytes": 1387321299.5731883,
+    "avg_duration": 1.21120454838924,
+    "filter": 9,
+    "join": 4,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_0 AS t1 JOIN imdb.table_1 AS t2 USING (id) WHERE t1.col1 > 15",
+    "avg_cpu_time": 5465.749216202964,
+    "avg_scan_bytes": 804637281.7714043,
+    "avg_duration": 17.9759828425165,
+    "filter": 6,
+    "join": 3,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_1 AS t1 JOIN imdb.table_2 AS t2 USING (id) WHERE t1.col1 > 16 GROUP BY t1.col2",
+    "avg_cpu_time": 1368.4272150957115,
+    "avg_scan_bytes": 187214433.39126366,
+    "avg_duration": 15.081128463090801,
+    "filter": 3,
+    "join": 4,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_2 AS t1 JOIN imdb.table_3 AS t2 USING (id) WHERE t1.col1 > 17 GROUP BY t1.col2",
+    "avg_cpu_time": 906.6556576872326,
+    "avg_scan_bytes": 598554683.6717792,
+    "avg_duration": 6.885282253881845,
+    "filter": 4,
+    "join": 3,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM imdb.table_3 AS t1 JOIN imdb.table_4 AS t2 USING (id) WHERE t1.col1 > 18",
+    "avg_cpu_time": 463.2821820964196,
+    "avg_scan_bytes": 29017867786.23904,
+    "avg_duration": 7.409029833791478,
+    "filter": 8,
+    "join": 6,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM imdb.table_4 AS t1 JOIN imdb.table_0 AS t2 USING (id) WHERE t1.col1 > 19 GROUP BY t1.col2",
+    "avg_cpu_time": 7636.64753145729,
+    "avg_scan_bytes": 16315408.585793937,
+    "avg_duration": 11.734844987057143,
+    "filter": 7,
+    "join": 3,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_0 AS t1 WHERE t1.col1 > 0 GROUP BY t1.col2@llm"},
+  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_1 AS t1 WHERE t1.col1 > 1 GROUP BY t1.col2@llm"},
+  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_2 AS t1 WHERE t1.col1 > 2 GROUP BY t1.col2@llm"},
+  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_3 AS t1 WHERE t1.col1 > 3 GROUP BY t1.col2@llm"},
+  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_4 AS t1 WHERE t1.col1 > 4 GROUP BY t1.col2@llm"},
+  {"query": "SELECT t1.col1, t2.col2 FROM llm.table_0 t1 JOIN llm.table_1 t2 ON t1.col2 = t2.col2 WHERE t1.col1 > 5@llm"},
+  {"query": "SELECT t1.col2 FROM llm.table_2 t1 WHERE t1.col1 BETWEEN 1 AND 10 ORDER BY t1.col2 DESC LIMIT 20@llm"},
+  {"query": "SELECT t1.col2, SUM(t2.col1) AS s FROM llm.table_3 t1 JOIN llm.table_4 t2 ON t1.col2 = t2.col2 WHERE t2.col1 < 50 GROUP BY t1.col2 ORDER BY s DESC@llm"},
+  {"query": "SELECT COUNT(*) FROM llm.table_4 t1 WHERE t1.col1 <> 0 AND t1.col2 > 100@llm"},
+  {"query": "SELECT t1.col1, t2.col2 FROM llm.table_2 t1 LEFT JOIN llm.table_3 t2 ON t1.col2 = t2.col2 WHERE t1.col1 IS NOT NULL ORDER BY t1.col1, t2.col2@llm"},
+  {"query": "SELECT t0.col2, SUM(t1.col1 + t2.col1) AS total FROM llm.table_0 t0 JOIN llm.table_1 t1 ON t0.col2 = t1.col2 JOIN llm.table_2 t2 ON t1.col1 = t2.col1 WHERE t0.col1 BETWEEN 1 AND 100 AND t2.col2 > 0 GROUP BY t0.col2 ORDER BY total DESC@llm"},
+  {"query": "SELECT t3.col1, COUNT(*) AS cnt FROM llm.table_3 t3 JOIN llm.table_4 t4 ON t3.col2 = t4.col2 JOIN llm.table_0 t0 ON t4.col1 = t0.col1 WHERE t3.col1 > 0 AND t4.col3 < 100 GROUP BY t3.col1 ORDER BY cnt DESC@llm"}
+]

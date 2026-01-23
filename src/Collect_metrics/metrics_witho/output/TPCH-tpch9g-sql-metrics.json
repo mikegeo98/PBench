@@ -1,0 +1,222 @@
+[
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_0 AS t1 WHERE t1.col1 > 0 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 5425.66603880065,
+    "avg_scan_bytes": 3190848316.1371527,
+    "avg_duration": 14.102668363209636,
+    "filter": 3,
+    "join": 0,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_1 AS t1 JOIN tpch9g.table_2 AS t2 USING (id) WHERE t1.col1 > 1",
+    "avg_cpu_time": 12681.162974229084,
+    "avg_scan_bytes": 6768231665.946807,
+    "avg_duration": 3.100032207165983,
+    "filter": 3,
+    "join": 1,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_2 AS t1 WHERE t1.col1 > 2",
+    "avg_cpu_time": 8748.216503604355,
+    "avg_scan_bytes": 81722551.04111736,
+    "avg_duration": 4.305929238013488,
+    "filter": 4,
+    "join": 0,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_3 AS t1 WHERE t1.col1 > 3 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 27472.184255387183,
+    "avg_scan_bytes": 1324438338.9924722,
+    "avg_duration": 3.7698318941278135,
+    "filter": 4,
+    "join": 0,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_4 AS t1 JOIN tpch9g.table_0 AS t2 USING (id) WHERE t1.col1 > 4 ORDER BY t1.col3",
+    "avg_cpu_time": 28909.348975754427,
+    "avg_scan_bytes": 26480320487.519688,
+    "avg_duration": 2.2391352548820764,
+    "filter": 2,
+    "join": 1,
+    "agg": 0,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_0 AS t1 WHERE t1.col1 > 5 ORDER BY t1.col3",
+    "avg_cpu_time": 968.1026594309773,
+    "avg_scan_bytes": 1285484493.3704774,
+    "avg_duration": 4.790827447771755,
+    "filter": 1,
+    "join": 0,
+    "agg": 0,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_1 AS t1 WHERE t1.col1 > 6",
+    "avg_cpu_time": 1379.6849618054891,
+    "avg_scan_bytes": 67115228468.89032,
+    "avg_duration": 4.393803845057027,
+    "filter": 4,
+    "join": 0,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_2 AS t1 JOIN tpch9g.table_3 AS t2 USING (id) WHERE t1.col1 > 7 ORDER BY t1.col3",
+    "avg_cpu_time": 1376.4543476608683,
+    "avg_scan_bytes": 164139411.60974044,
+    "avg_duration": 1.7894502426580097,
+    "filter": 3,
+    "join": 2,
+    "agg": 0,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_3 AS t1 WHERE t1.col1 > 8 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 1723.207203753754,
+    "avg_scan_bytes": 10630840782.018173,
+    "avg_duration": 3.0756694302645005,
+    "filter": 4,
+    "join": 0,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, COUNT(*) AS cnt FROM tpch9g.table_4 AS t1 JOIN tpch9g.table_0 AS t2 USING (id) WHERE t1.col1 > 9 GROUP BY t1.col2",
+    "avg_cpu_time": 4691.15246148562,
+    "avg_scan_bytes": 96318090.90288875,
+    "avg_duration": 10.022536164649251,
+    "filter": 2,
+    "join": 1,
+    "agg": 1,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_0 AS t1 WHERE t1.col1 > 10 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 5225.243814753533,
+    "avg_scan_bytes": 72205069.37064841,
+    "avg_duration": 2.9363594850402652,
+    "filter": 1,
+    "join": 0,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_1 AS t1 WHERE t1.col1 > 11 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 11881.846847099607,
+    "avg_scan_bytes": 189179772.02132338,
+    "avg_duration": 7.34210003668849,
+    "filter": 3,
+    "join": 0,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_2 AS t1 WHERE t1.col1 > 12 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 894.311920926194,
+    "avg_scan_bytes": 1066965963.3675494,
+    "avg_duration": 8.619136585976849,
+    "filter": 3,
+    "join": 0,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_3 AS t1 JOIN tpch9g.table_4 AS t2 USING (id) WHERE t1.col1 > 13 ORDER BY t1.col3",
+    "avg_cpu_time": 3938.2390735815557,
+    "avg_scan_bytes": 720448996.5451524,
+    "avg_duration": 0.36266796646504207,
+    "filter": 1,
+    "join": 2,
+    "agg": 0,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_4 AS t1 WHERE t1.col1 > 14 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 26650.998019576135,
+    "avg_scan_bytes": 779784168.1540096,
+    "avg_duration": 10.434756109620212,
+    "filter": 3,
+    "join": 0,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT t1.col2, t1.col3, COUNT(*) AS cnt FROM tpch9g.table_0 AS t1 JOIN tpch9g.table_1 AS t2 USING (id) WHERE t1.col1 > 15 GROUP BY t1.col2, t1.col3 ORDER BY t1.col3",
+    "avg_cpu_time": 1862.0134806966416,
+    "avg_scan_bytes": 270828614.7080147,
+    "avg_duration": 1.9126784638826932,
+    "filter": 4,
+    "join": 1,
+    "agg": 1,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_1 AS t1 JOIN tpch9g.table_2 AS t2 USING (id) WHERE t1.col1 > 16 ORDER BY t1.col3",
+    "avg_cpu_time": 4630.766816432876,
+    "avg_scan_bytes": 123380224.44496746,
+    "avg_duration": 1.9160739594500649,
+    "filter": 4,
+    "join": 1,
+    "agg": 0,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_2 AS t1 JOIN tpch9g.table_3 AS t2 USING (id) WHERE t1.col1 > 17",
+    "avg_cpu_time": 53209.59991778545,
+    "avg_scan_bytes": 632297830.2678256,
+    "avg_duration": 11.217086854632623,
+    "filter": 4,
+    "join": 2,
+    "agg": 0,
+    "sort": 0,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_3 AS t1 WHERE t1.col1 > 18 ORDER BY t1.col3",
+    "avg_cpu_time": 9339.869212831427,
+    "avg_scan_bytes": 2990855380.5807824,
+    "avg_duration": 6.221373521328427,
+    "filter": 3,
+    "join": 0,
+    "agg": 0,
+    "sort": 1,
+    "factor": 1
+  },
+  {
+    "query": "SELECT * FROM tpch9g.table_4 AS t1 JOIN tpch9g.table_0 AS t2 USING (id) WHERE t1.col1 > 19 ORDER BY t1.col3",
+    "avg_cpu_time": 489.873233137198,
+    "avg_scan_bytes": 1305857556.8107905,
+    "avg_duration": 1.6820912676906625,
+    "filter": 1,
+    "join": 1,
+    "agg": 0,
+    "sort": 1,
+    "factor": 1
+  }
+]
