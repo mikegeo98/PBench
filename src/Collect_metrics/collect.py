@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -14,6 +15,25 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.prometheus import prometheus_queries
+
+# Benchmark configurations
+BENCHMARKS = {
+    "tpch": {
+        "input": "./metrics_witho/input/TPCH-tpch1g-sql-input.json",
+        "output": "./metrics_witho/output/TPCH-tpch1g-sql-metrics.json",
+        "description": "TPC-H benchmark (22 queries)"
+    },
+    "imdb": {
+        "input": "./metrics_witho/input/imdb-imdb-sql-input.json",
+        "output": "./metrics_witho/output/imdb-imdb-sql-metrics.json",
+        "description": "IMDB/JOB benchmark (113 queries)"
+    },
+    "tpcds": {
+        "input": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input.json",
+        "output": "./metrics_witho/output/tpcds_all-tpcds1g-sql-metrics.json",
+        "description": "TPC-DS benchmark"
+    }
+}
 
 
 def get_time():
@@ -146,30 +166,79 @@ def record_operator(host, databend_port, query, database):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Collect metrics for database benchmark queries",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Available benchmarks:
+  tpch   - TPC-H benchmark (22 queries on tpch1g database)
+  imdb   - IMDB/JOB benchmark (113 queries on imdb database)
+  tpcds  - TPC-DS benchmark (on tpcds1g database)
+
+Examples:
+  python collect.py tpch          # Collect TPC-H metrics
+  python collect.py imdb          # Collect IMDB metrics
+  python collect.py imdb --repeat 5  # Run each query 5 times
+        """
+    )
+    parser.add_argument(
+        "benchmark",
+        choices=list(BENCHMARKS.keys()),
+        help="Benchmark to run (tpch, imdb, or tpcds)"
+    )
+    parser.add_argument(
+        "--repeat", "-r",
+        type=int,
+        default=3,
+        help="Number of times to repeat each query (default: 3)"
+    )
+    parser.add_argument(
+        "--start", "-s",
+        type=int,
+        default=None,
+        help="Start from query index (0-based, overrides resume)"
+    )
+    args = parser.parse_args()
+
     config = load_config()
+    benchmark = BENCHMARKS[args.benchmark]
 
-    # TPC-H input and output files
-    record_file = "./metrics_witho/output/TPCH-tpch1g-sql-metrics.json"
-    src = "./metrics_witho/input/TPCH-tpch1g-sql-input.json"
+    src = benchmark["input"]
+    record_file = benchmark["output"]
+    repeat = args.repeat
 
-    print(f"Loading queries from: {src}")
+    print(f"Benchmark: {args.benchmark.upper()} - {benchmark['description']}")
+    print(f"Input: {src}")
+    print(f"Output: {record_file}")
+    print(f"Repeat: {repeat}x per query")
+    print("=" * 60)
+
+    print(f"\nLoading queries from: {src}")
     sql_statements = load_query_from_json(src)
     print(f"Found {len(sql_statements)} queries")
     data = []
 
-    if os.path.exists(record_file):
+    # Resume from existing progress or start fresh
+    if args.start is not None:
+        start_index = args.start
+        print(f"Starting from query index {start_index} (as specified)")
+    elif os.path.exists(record_file):
         with open(record_file, "r") as file:
             data = json.load(file)
-    start_index = len(data)
+        start_index = len(data)
+        if start_index > 0:
+            print(f"Resuming from query {start_index} ({start_index} already collected)")
+    else:
+        start_index = 0
 
     for idx, sql in enumerate(sql_statements[start_index:], start=start_index):
         query_with_db = sql["query"]
         query, database = query_with_db.rsplit("@", 1)
         print(f"\n[{idx + 1}/{len(sql_statements)}] Processing query on {database}...")
+        print(f"  Query: {query[:80]}...")
 
-        # First: Record metrics by running the actual query (3 times and average)
+        # First: Record metrics by running the actual query (repeat times and average)
         total_cputime, total_scan, total_duration = 0, 0, 0
-        repeat = 3
         for run in range(repeat):
             print(f"  Run {run + 1}/{repeat}")
             _, cputime, scan, duration = record_metrics(
@@ -199,6 +268,10 @@ def main():
             **operators
         })
         save_data_to_file(data, record_file)
+
+    print(f"\n{'=' * 60}")
+    print(f"Done! Collected metrics for {len(data)} {args.benchmark.upper()} queries")
+    print(f"Output saved to: {record_file}")
 
 
 if __name__ == "__main__":

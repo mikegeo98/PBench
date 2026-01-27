@@ -113,6 +113,35 @@ This uses pure SQL to generate synthetic data with correct row counts but approx
 | orders | 1,500,000 |
 | lineitem | 6,001,215 |
 
+#### 2b. Generate and Load IMDB/JOB Data
+
+Load the IMDB dataset for the Join Order Benchmark (~3.7GB, 36M+ rows):
+
+```bash
+cd databend-init
+./load_imdb.sh
+cd ..
+```
+
+This will:
+1. Download IMDB data from CWI (~1.2GB compressed)
+2. Preprocess CSV files (remove trailing $ characters)
+3. Create the `imdb` database with 21 tables
+4. Load all data using COPY INTO
+
+**Expected row counts:**
+| Table | Rows |
+|-------|------|
+| cast_info | 36,244,344 |
+| movie_info | 14,835,720 |
+| movie_keyword | 4,523,930 |
+| name | 4,167,491 |
+| char_name | 3,140,339 |
+| person_info | 2,963,664 |
+| movie_companies | 2,609,129 |
+| title | 2,528,312 |
+| ... | ... |
+
 #### 3. Configure Your Experiment
 
 Create a YAML config file in `src/Baseline/configs/`. Example:
@@ -166,11 +195,45 @@ Output plans are saved to `src/Baseline/output/`.
 
 ### Collect Metrics
 
+Collect query execution metrics (CPU time, scan bytes, duration, operators) from Databend with Prometheus.
+
 ```bash
 source .venv/bin/activate
 cd src/Collect_metrics
-python collect.py
+
+# Collect TPC-H metrics (22 queries)
+python collect.py tpch
+
+# Collect IMDB/JOB metrics (113 queries)
+python collect.py imdb
+
+# Collect TPC-DS metrics
+python collect.py tpcds
 ```
+
+**Options:**
+```bash
+python collect.py imdb --repeat 1     # Run each query once (faster, less accurate)
+python collect.py imdb --repeat 5     # Run each query 5 times (more accurate)
+python collect.py imdb --start 10     # Resume/start from query index 10
+```
+
+**Prerequisites:**
+- Databend running with data loaded (TPC-H, IMDB, or TPC-DS)
+- Prometheus scraping Databend metrics (port 9091)
+- `.env` file configured in `src/Collect_metrics/`:
+  ```
+  HOST=localhost
+  DATABEND_PORT=8000
+  PROMETHEUS_PORT=9091
+  ```
+
+**Output:**
+- `metrics_witho/output/TPCH-tpch1g-sql-metrics.json` - TPC-H metrics
+- `metrics_witho/output/imdb-imdb-sql-metrics.json` - IMDB metrics
+- `metrics_witho/output/tpcds_all-tpcds1g-sql-metrics.json` - TPC-DS metrics
+
+The script automatically resumes from where it left off if interrupted.
 
 ## Configuration
 
@@ -206,18 +269,43 @@ To use your own Snowset workload data:
 ### Custom Query Metrics
 
 To collect metrics from your own benchmark databases:
-1. Load your benchmark data into Databend
-2. Run `src/Collect_metrics/collect.py` to collect query statistics
-3. Metrics will be saved in `src/Collect_metrics/metrics_witho/output/`
 
-Expected file format: `{query_type}-{database}-sql-metrics.json`
+1. **Load your benchmark data into Databend**
+   ```bash
+   # TPC-H
+   cd databend-init && ./load_tpch_dbgen.sh 1 tpch1g
 
-Each JSON file should contain an array of query metrics with:
-- `query`: SQL query text
-- `avg_cpu_time`: Average CPU time
-- `avg_scan_bytes`: Average bytes scanned
-- `avg_duration`: Average query duration
-- `filter`, `join`, `agg`, `sort`: Operator counts
+   # IMDB/JOB
+   cd databend-init && ./load_imdb.sh
+   ```
+
+2. **Collect query statistics**
+   ```bash
+   cd src/Collect_metrics
+   python collect.py tpch    # For TPC-H
+   python collect.py imdb    # For IMDB/JOB
+   python collect.py tpcds   # For TPC-DS
+   ```
+
+3. **Metrics are saved to** `src/Collect_metrics/metrics_witho/output/`
+
+**File format:** `{query_type}-{database}-sql-metrics.json`
+
+Each JSON file contains an array of query metrics:
+```json
+[
+  {
+    "query": "SELECT ... @database_name",
+    "avg_cpu_time": 0.45,
+    "avg_scan_bytes": 1234567,
+    "avg_duration": 0.123,
+    "filter": 1,
+    "join": 1,
+    "agg": 1,
+    "sort": 0
+  }
+]
+```
 
 ## Stopping Services
 
