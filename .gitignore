@@ -53,6 +53,9 @@ prometheus-data/
 *.tbl
 databend-init/tpch-data/
 
+# IMDB/JOB data
+databend-init/imdb-data/
+
 # Logs
 *.log
 
