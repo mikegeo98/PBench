@@ -6,9 +6,13 @@ services:
       - "8000:8000"  # HTTP handler port
       - "9010:9000"  # MySQL handler port (mapped to 9010 to avoid conflict)
       - "3307:3307"  # ClickHouse handler port
+      - "8080:8080"  # Admin API port
+      - "7070:7070"  # Metrics API port
     environment:
       - QUERY_DEFAULT_USER=root
       - DATABEND_QUERY_FLIGHT_API_ADDRESS=0.0.0.0:9090
+      - DATABEND_QUERY_ADMIN_API_ADDRESS=0.0.0.0:8080
+      - DATABEND_QUERY_METRIC_API_ADDRESS=0.0.0.0:7070
     volumes:
       - databend-data:/var/lib/databend
     networks:

@@ -11,8 +11,7 @@ from dotenv import load_dotenv
 
 # Make sure the repo's `src` directory is on the import path so we can reuse utils.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.prometheus import prometheus_queries
 
@@ -64,7 +63,7 @@ def load_query_from_json(path):
         return json.load(file)
 
 
-def execute_query(host, port, query, database):
+def execute_query(host, port, query, database, explain_analyze=False):
     # if there are more than one query in the file, only execute them one by one
     query = query.split(";")
     # make sure the last query is not empty
@@ -74,10 +73,10 @@ def execute_query(host, port, query, database):
     query = [q + ";" for q in query]
     ret = []
     for q in query:
-        if not q.startswith("Explain Analyze") and not q.startswith("EXPLAIN ANALYZE"):
-            q = "Explain Analyze " + q
+        if explain_analyze and not q.upper().startswith("EXPLAIN ANALYZE"):
+            q = "EXPLAIN ANALYZE " + q
         client = Client(f"root:@{host}", port=port, secure=False, database=database)
-        print(q)
+        print(f"  Executing: {q[:80]}...")
         try:
             tmp = client.execute(q)
             ret.append(tmp)
@@ -86,25 +85,32 @@ def execute_query(host, port, query, database):
             pass
     return ret
 
-def record_metrics(host, databend_port, prometheus_port, query, wait_time,database):
+def record_metrics(host, databend_port, prometheus_port, query, wait_time, database):
     """ Record and print metrics related to the executed query. """
-    # start_time = time.time()
+    # Wait for fresh Prometheus scrape before starting (scrape interval is 5s)
+    time.sleep(6)
+
     start_time = get_time()
-    
-    print(f"Start time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Start time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}")
     start_cputime = prometheus_queries["cpu"](host, prometheus_port, start_time)
     start_scan = prometheus_queries["scan"](host, prometheus_port, start_time)
+    print(f"    Start - CPU: {start_cputime}, Scan: {start_scan}")
 
-    execute_query(host, databend_port, query,database)
-    time.sleep(wait_time)
+    # Run the actual query (not EXPLAIN ANALYZE) to capture real metrics
+    query_start = get_time()
+    execute_query(host, databend_port, query, database, explain_analyze=False)
+    query_duration = get_time() - query_start
 
-    # end_time = time.time()
+    # Wait for Prometheus to scrape new metrics
+    time.sleep(6)
+
     end_time = get_time()
-    print(f"End time: {datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  End time: {datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')}")
     end_cputime = prometheus_queries["cpu"](host, prometheus_port, end_time)
     end_scan = prometheus_queries["scan"](host, prometheus_port, end_time)
+    print(f"    End   - CPU: {end_cputime}, Scan: {end_scan}")
 
-    return query, end_cputime - start_cputime, end_scan - start_scan, end_time - start_time - wait_time
+    return query, end_cputime - start_cputime, end_scan - start_scan, query_duration
 
 
 def save_data_to_file(data, record_file):
@@ -113,7 +119,7 @@ def save_data_to_file(data, record_file):
         json.dump(data, file, indent=2)
 
 
-def record_operator(host, databend_port, query,database):
+def record_operator(host, databend_port, query, database):
     """ Record the operators used in the query. """
     operator_keywords = {
         # Databend plans often show pushdown filters as "filters:" in TableScan nodes.
@@ -121,8 +127,9 @@ def record_operator(host, databend_port, query,database):
         "join": "HashJoin",
         "agg": "AggregateFinal",
         "sort": "Sort"
-    } # TODO: These are the keywords for the operators in the Databend execution plan. Update them as needed.
-    plan = execute_query(host, databend_port, query,database)
+    }
+    # Use EXPLAIN ANALYZE to get the query plan for operator detection
+    plan = execute_query(host, databend_port, query, database, explain_analyze=True)
     operator_flag = {}
     for i in range(len(plan)):
         # databend-py returns (result_rows, plan_rows) for EXPLAIN ANALYZE in recent versions.
@@ -141,10 +148,13 @@ def record_operator(host, databend_port, query,database):
 def main():
     config = load_config()
 
-    record_file = "./metrics_witho/output/llm-llm-sql-metrics.json"
+    # TPC-H input and output files
+    record_file = "./metrics_witho/output/TPCH-tpch1g-sql-metrics.json"
+    src = "./metrics_witho/input/TPCH-tpch1g-sql-input.json"
 
-    src = "./metrics_witho/input/llm1-llm1-sql-metrics.json"
+    print(f"Loading queries from: {src}")
     sql_statements = load_query_from_json(src)
+    print(f"Found {len(sql_statements)} queries")
     data = []
 
     if os.path.exists(record_file):
@@ -152,36 +162,41 @@ def main():
             data = json.load(file)
     start_index = len(data)
 
-    for sql in sql_statements[start_index:]:
-        query = sql["query"]
-        query, database = query.split("@")
-        # TODO: Explain Analyze or not?
-        operaters = record_operator(config["host"], config["databend_port"], query, database)
+    for idx, sql in enumerate(sql_statements[start_index:], start=start_index):
+        query_with_db = sql["query"]
+        query, database = query_with_db.rsplit("@", 1)
+        print(f"\n[{idx + 1}/{len(sql_statements)}] Processing query on {database}...")
+
+        # First: Record metrics by running the actual query (3 times and average)
         total_cputime, total_scan, total_duration = 0, 0, 0
-        time.sleep(config["wait"])
-        repeat=3
-        for _ in range(repeat):
-            query, cputime, scan, duration = record_metrics(config["host"], config["databend_port"], config["prometheus_port"], query, config["wait"],database)
-            total_cputime = total_cputime + cputime
-            total_scan = total_scan + scan
-            total_duration = total_duration + duration
-            print(f"Total time: {duration}")
-            print(f"Total cputime: {cputime}")
-            print(f"Total scan: {scan}")
-            try:
-                print("-" * os.get_terminal_size().columns)
-            except OSError:
-                print("-" * 80)
-        total_cputime = total_cputime / repeat
-        total_scan = total_scan / repeat
-        total_duration = total_duration / repeat
+        repeat = 3
+        for run in range(repeat):
+            print(f"  Run {run + 1}/{repeat}")
+            _, cputime, scan, duration = record_metrics(
+                config["host"], config["databend_port"], config["prometheus_port"],
+                query, config["wait"], database
+            )
+            total_cputime += cputime
+            total_scan += scan
+            total_duration += duration
+            print(f"    Duration: {duration:.3f}s, CPU: {cputime:.2f}, Scan: {scan:.0f}")
+
+        avg_cputime = total_cputime / repeat
+        avg_scan = total_scan / repeat
+        avg_duration = total_duration / repeat
+        print(f"  Averages - CPU: {avg_cputime:.2f}, Scan: {avg_scan:.0f}, Duration: {avg_duration:.3f}s")
+
+        # Second: Get operator info using EXPLAIN ANALYZE
+        print("  Getting operator info...")
+        operators = record_operator(config["host"], config["databend_port"], query, database)
+        print(f"  Operators: {operators}")
 
         data.append({
-            "query": query + "@" + database,
-            "avg_cpu_time": total_cputime,
-            "avg_scan_bytes": total_scan,
-            "avg_duration": total_duration
-            ,**operaters
+            "query": query_with_db,
+            "avg_cpu_time": avg_cputime,
+            "avg_scan_bytes": avg_scan,
+            "avg_duration": avg_duration,
+            **operators
         })
         save_data_to_file(data, record_file)
 

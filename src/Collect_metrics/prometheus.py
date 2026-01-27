@@ -7,7 +7,7 @@ def query_prometheus(host, port, time, query):
     prometheus_url = f"http://{host}:{port}/api/v1/query"
     try:
         params = {"query": query, "time": time}
-        response = requests.get(prometheus_url, params=params, timeout=10)  
+        response = requests.get(prometheus_url, params=params, timeout=10)
         res = response.json()
         if res["status"] == "success":
             return float(res["data"]["result"][0]["value"][1])
