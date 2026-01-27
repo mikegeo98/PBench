@@ -77,7 +77,43 @@ python run_ddl.py
 
 This executes the DDL scripts to create tables for TPC-H, TPC-DS, and IMDB/JOB benchmarks.
 
-#### 2. Configure Your Experiment
+#### 2. Generate and Load TPC-H Data
+
+Load TPC-H Scale Factor 1 data (~1GB, 8.6M rows) using the official dbgen tool via Docker:
+
+```bash
+cd databend-init
+./load_tpch_dbgen.sh 1 tpch1g
+cd ..
+```
+
+This will:
+1. Pull the TPC-H dbgen Docker image
+2. Generate official TPC-H SF1 data files
+3. Upload and load data into Databend using COPY INTO
+
+**Alternative: Quick synthetic data** (for development/testing):
+```bash
+cd databend-init
+python load_tpch_sf1.py
+cd ..
+```
+
+This uses pure SQL to generate synthetic data with correct row counts but approximate distributions.
+
+**Expected row counts (SF1):**
+| Table | Rows |
+|-------|------|
+| region | 5 |
+| nation | 25 |
+| supplier | 10,000 |
+| part | 200,000 |
+| partsupp | 800,000 |
+| customer | 150,000 |
+| orders | 1,500,000 |
+| lineitem | 6,001,215 |
+
+#### 3. Configure Your Experiment
 
 Create a YAML config file in `src/Baseline/configs/`. Example:
 
@@ -114,7 +150,7 @@ plan: stitcher             # Options: stitcher, cab
 | `tpcds_all` | `tpcds1g`, `tpcds2g` | TPC-DS benchmark queries |
 | `imdb` | `imdb` | Join Order Benchmark (JOB) queries |
 
-#### 3. Run the Baseline
+#### 4. Run the Baseline
 
 ```bash
 source .venv/bin/activate

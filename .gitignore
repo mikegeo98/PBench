@@ -48,6 +48,10 @@ src/Baseline/Stitcher/output/
 databend-data/
 prometheus-data/
 
+# TPC-H generated data
+*.tbl
+databend-init/tpch-data/
+
 # Logs
 *.log
 
