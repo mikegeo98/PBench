@@ -40,6 +40,7 @@ wheels/
 # PBench specific
 # Output directories (generated files)
 src/PBench-tool/output/
+src/Baseline/output/
 src/Baseline/CAB/output/
 src/Baseline/CAB/tmp_res/
 src/Baseline/Stitcher/output/

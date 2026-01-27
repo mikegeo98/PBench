@@ -1,0 +1,21 @@
+workload_path: ../../src/Workloads/Snowset/workload1h-5m-30s_1.csv
+workload_name: test-tpch-only
+host: localhost
+databend_port: 8000
+prometheus_port: 9091
+count_limit: 100
+time_limit: 60
+use_operator: 1
+wait: 2
+interval: 10
+query:
+- TPCH
+db:
+- tpch1g
+op_scale: 100
+initial_count: 5
+use_duration: 0
+seed: 42
+iter: 5
+seconds_in_time_slot: 60
+plan: stitcher
