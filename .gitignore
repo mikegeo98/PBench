@@ -1,3 +1,6 @@
+.direnv
+.envrc
+original-workload-files
 # Python
 __pycache__/
 **/__pycache__/
