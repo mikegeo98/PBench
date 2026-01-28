@@ -56,6 +56,10 @@ databend-init/tpch-data/
 # IMDB/JOB data
 databend-init/imdb-data/
 
+# DuckDB database files
+*.duckdb
+*.duckdb.wal
+
 # Logs
 *.log
 
