@@ -39,6 +39,14 @@ Python 3.10 is required to run PBench. To set up the environment, follow the ste
 
 [Snowset](https://github.com/resource-disaggregation/snowset) contains several statistics (timing, I/O, resource usage, etc..) pertaining to ~70 million queries from all customers that ran on [Snowflake](https://www.snowflake.com/) over a 14 day period from Feb 21st 2018 to March 7th 2018. PBench uses the statistics in Snowset to synthesize database workloads.
 
+## Supported Benchmarks
+
+| Benchmark | Queries | Description |
+|-----------|---------|-------------|
+| TPC-H | 22 | Decision support benchmark |
+| TPC-DS | 99 | Decision support benchmark (more complex) |
+| IMDB/JOB | 113 | Join Order Benchmark on real IMDB data |
+
 # Usage
 
 PBench can synthesize database workloads using different methods. The following sections describe how to use each method.
@@ -89,9 +97,20 @@ To synthesize database workloads by PBench, follow the steps below:
 
 1. Collect the statistics of queries
 
+    ```bash
+    # Collect metrics from Databend (default)
+    python Collect_metrics/collect.py tpch
+    python Collect_metrics/collect.py imdb
+    python Collect_metrics/collect.py tpcds
+
+    # Collect from multiple databases
+    python Collect_metrics/collect.py tpch --postgres --duckdb
     ```
-    python Collect_metrics/collect.py 
-    ```
+
+    Supported database backends:
+    - **Databend** (default) - Uses Prometheus for CPU time and scan bytes
+    - **PostgreSQL** - Uses `EXPLAIN (ANALYZE, BUFFERS)` for metrics
+    - **DuckDB** - Uses `EXPLAIN ANALYZE` for metrics
 
 2. Synthesize workload and replay
 

@@ -9,6 +9,7 @@ This guide explains how to set up and run PBench for database workload synthesis
 - Python 3.10 (required)
 - Docker and Docker Compose
 - Git
+- PostgreSQL 12+ (optional, for multi-database metrics collection)
 
 ## Setup
 
@@ -46,6 +47,44 @@ If you need to rerun the DDLs manually (e.g., after resetting Databend data):
 ```bash
 cd databend-init
 python run_ddl.py --host localhost --port 8000
+```
+
+### 4. Set Up PostgreSQL (Optional)
+
+For multi-database metrics collection, set up a local PostgreSQL instance:
+
+```bash
+# Install PostgreSQL (Ubuntu/Debian)
+sudo apt install postgresql postgresql-contrib
+
+# Verify it's running
+sudo systemctl status postgresql
+
+# The loaders use peer authentication by default (your Unix username)
+# Create databases for benchmarks:
+createdb tpch1g
+createdb tpcds1g
+createdb imdb
+```
+
+**Load benchmark data into PostgreSQL:**
+```bash
+cd databend-init
+
+# TPC-H
+./load_tpch_postgres.sh 1 tpch1g
+
+# TPC-DS (requires dsdgen - run setup_tpcds_dsdgen.sh first)
+./load_tpcds_postgres.sh 1 tpcds1g
+
+# IMDB/JOB
+./load_imdb_postgres.sh
+```
+
+**Environment variables** (if not using peer auth):
+```bash
+export PGUSER=myuser
+export PGPASSWORD=mypassword
 ```
 
 ## Running PBench
@@ -94,28 +133,38 @@ This will:
 2. Generate official TPC-H SF1 data files
 3. Upload and load data into Databend using COPY INTO
 
-**Alternative: Quick synthetic data** (for development/testing):
+#### 2b. Generate and Load TPC-DS Data
+
+Load TPC-DS Scale Factor 1 data (~1GB, 19.5M rows) using the official dsdgen tool:
+
 ```bash
 cd databend-init
-python load_tpch_sf1.py
+
+# First time only: build the dsdgen tool
+./setup_tpcds_dsdgen.sh
+
+# Generate and load data into Databend
+./load_tpcds_dbgen.sh 1 tpcds1g
+
 cd ..
 ```
 
-This uses pure SQL to generate synthetic data with correct row counts but approximate distributions.
+This will:
+1. Clone and build the TPC-DS dsdgen tool (first time only)
+2. Generate official TPC-DS SF1 data files
+3. Upload and load data into Databend using COPY INTO
 
-**Expected row counts (SF1):**
-| Table | Rows |
-|-------|------|
-| region | 5 |
-| nation | 25 |
-| supplier | 10,000 |
-| part | 200,000 |
-| partsupp | 800,000 |
-| customer | 150,000 |
-| orders | 1,500,000 |
-| lineitem | 6,001,215 |
+**For PostgreSQL:**
+```bash
+./load_tpcds_postgres.sh 1 tpcds1g
+```
 
-#### 2b. Generate and Load IMDB/JOB Data
+**For DuckDB:**
+```bash
+python load_tpcds_duckdb.py tpcds1g.duckdb 1
+```
+
+#### 2c. Generate and Load IMDB/JOB Data
 
 Load the IMDB dataset for the Join Order Benchmark (~3.7GB, 36M+ rows):
 
@@ -130,19 +179,6 @@ This will:
 2. Preprocess CSV files (remove trailing $ characters)
 3. Create the `imdb` database with 21 tables
 4. Load all data using COPY INTO
-
-**Expected row counts:**
-| Table | Rows |
-|-------|------|
-| cast_info | 36,244,344 |
-| movie_info | 14,835,720 |
-| movie_keyword | 4,523,930 |
-| name | 4,167,491 |
-| char_name | 3,140,339 |
-| person_info | 2,963,664 |
-| movie_companies | 2,609,129 |
-| title | 2,528,312 |
-| ... | ... |
 
 #### 3. Configure Your Experiment
 
@@ -218,6 +254,22 @@ python collect.py tpcds
 python collect.py imdb --repeat 1     # Run each query once (faster, less accurate)
 python collect.py imdb --repeat 5     # Run each query 5 times (more accurate)
 python collect.py imdb --start 10     # Resume/start from query index 10
+
+# Single-database collection (--postgres/--duckdb alone disables Databend)
+python collect.py tpch --databend     # Databend only (default)
+python collect.py tpch --no-databend --postgres     # PostgreSQL only
+python collect.py tpch --no-databend --duckdb       # DuckDB only
+
+# Multi-database collection
+python collect.py tpch --databend --postgres  # Databend + PostgreSQL
+python collect.py tpch --databend --duckdb    # Databend + DuckDB
+python collect.py tpch --all                  # All three databases
+
+# DuckDB with custom path
+python collect.py tpcds --duckdb --duckdb-path ./tpcds1g.duckdb
+
+# PostgreSQL + DuckDB without Databend
+python collect.py tpcds --no-databend --postgres --duckdb
 ```
 
 **Prerequisites:**
@@ -228,10 +280,14 @@ python collect.py imdb --start 10     # Resume/start from query index 10
   HOST=localhost
   DATABEND_PORT=8000
   PROMETHEUS_PORT=9091
+  DUCKDB_PATH=./tpcds1g.duckdb    # Path to DuckDB database file
+  PG_DATABASE=tpcds1g             # PostgreSQL database name
   ```
 
 **Output:**
-- `metrics_witho/output/TPCH-tpch1g-sql-metrics.json` - TPC-H metrics
+- `metrics_witho/output/TPCH-tpch1g-sql-metrics.json` - TPC-H metrics (Databend)
+- `metrics_witho/output/TPCH-tpch1g-sql-metrics-postgres.json` - TPC-H metrics (PostgreSQL)
+- `metrics_witho/output/TPCH-tpch1g-sql-metrics-duckdb.json` - TPC-H metrics (DuckDB)
 - `metrics_witho/output/imdb-imdb-sql-metrics.json` - IMDB metrics
 - `metrics_witho/output/tpcds_all-tpcds1g-sql-metrics.json` - TPC-DS metrics
 
@@ -259,14 +315,6 @@ query: [TPCH, TPCH, tpcds_all, imdb, llm]
 db: [tpch1g, tpch5g, tpcds1g, imdb, llm]
 ```
 
-## Using Your Own Data
-
-### Custom Workload Data
-
-To use your own Snowset workload data:
-1. Download from the [Snowset repository](https://github.com/resource-disaggregation/snowset)
-2. Place CSV files in `src/Workloads/Snowset/`
-3. Ensure filenames match those referenced in config files
 
 ### Custom Query Metrics
 
@@ -276,6 +324,9 @@ To collect metrics from your own benchmark databases:
    ```bash
    # TPC-H
    cd databend-init && ./load_tpch_dbgen.sh 1 tpch1g
+
+   # TPC-DS (first time: run ./setup_tpcds_dsdgen.sh)
+   cd databend-init && ./load_tpcds_dbgen.sh 1 tpcds1g
 
    # IMDB/JOB
    cd databend-init && ./load_imdb.sh
@@ -314,25 +365,6 @@ Each JSON file contains an array of query metrics:
 ```bash
 docker compose down       # Stop containers
 docker compose down -v    # Stop and remove all data
-```
-
-## Project Structure
-
-```
-PBench/
-├── src/
-│   ├── Workloads/Snowset/              # Sample Snowset workload CSVs
-│   ├── Collect_metrics/                # Metrics collection
-│   │   └── metrics_witho/output/       # Sample query metrics
-│   ├── PBench-tool/
-│   │   ├── configs/                    # Configuration files
-│   │   ├── output/plan/                # Generated optimization plans
-│   │   └── run_pbench.py               # Main entry point
-│   └── Baseline/                       # Baseline tools (CAB, Stitcher)
-├── docker-compose.yml                  # Database services
-├── prometheus.yml                      # Prometheus configuration
-├── init_databases.sh                   # Database initialization
-└── requirements.txt                    # Python dependencies
 ```
 
 ## References

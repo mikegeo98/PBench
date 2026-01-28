@@ -32,24 +32,28 @@ except ImportError:
 # Benchmark configurations
 # Each benchmark has:
 #   - input: Databend-specific SQL input file
-#   - input_standard: Standard SQL input file for PostgreSQL/DuckDB
+#   - input_postgres: PostgreSQL-specific SQL input file
+#   - input_duckdb: DuckDB-specific SQL input file
 #   - output: Output file path
 BENCHMARKS = {
     "tpch": {
         "input": "./metrics_witho/input/TPCH-tpch1g-sql-input.json",
-        "input_standard": "./metrics_witho/input/TPCH-tpch1g-sql-input-standard.json",
+        "input_postgres": "./metrics_witho/input/TPCH-tpch1g-sql-input-standard.json",
+        "input_duckdb": "./metrics_witho/input/TPCH-tpch1g-sql-input-standard.json",
         "output": "./metrics_witho/output/TPCH-tpch1g-sql-metrics.json",
         "description": "TPC-H benchmark (22 queries)"
     },
     "imdb": {
         "input": "./metrics_witho/input/imdb-imdb-sql-input.json",
-        "input_standard": "./metrics_witho/input/imdb-imdb-sql-input-standard.json",
+        "input_postgres": "./metrics_witho/input/imdb-imdb-sql-input-standard.json",
+        "input_duckdb": "./metrics_witho/input/imdb-imdb-sql-input-standard.json",
         "output": "./metrics_witho/output/imdb-imdb-sql-metrics.json",
         "description": "IMDB/JOB benchmark (113 queries)"
     },
     "tpcds": {
         "input": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input.json",
-        "input_standard": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input-standard.json",
+        "input_postgres": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input-postgres.json",
+        "input_duckdb": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input-duckdb.json",
         "output": "./metrics_witho/output/tpcds_all-tpcds1g-sql-metrics.json",
         "description": "TPC-DS benchmark"
     }
@@ -196,16 +200,18 @@ def record_operator_databend(host, databend_port, query, database):
 # =============================================================================
 
 def get_pg_connection(config, database=None):
-    """Get PostgreSQL connection."""
+    """Get PostgreSQL connection with statement timeout from config."""
     if not POSTGRES_AVAILABLE:
         raise RuntimeError("psycopg2 not installed. Run: pip install psycopg2-binary")
 
     db = database if database else config["pg_database"]
+    timeout_ms = config.get("timeout_ms", 60000)  # Default 60s
     # Build connection params - omit host for local Unix socket (peer auth)
     conn_params = {
         "port": config["pg_port"],
         "user": config["pg_user"],
-        "database": db
+        "database": db,
+        "options": f"-c statement_timeout={timeout_ms}"
     }
     if config["pg_host"]:
         conn_params["host"] = config["pg_host"]
@@ -553,6 +559,17 @@ Examples:
         default=None,
         help="DuckDB database path (overrides DUCKDB_PATH env var)"
     )
+    parser.add_argument(
+        "--timeout", "-t",
+        type=int,
+        default=60,
+        help="Query timeout in seconds (default: 60). Increase for slow queries."
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Collect from all three databases (Databend, PostgreSQL, DuckDB)"
+    )
     args = parser.parse_args()
 
     # Check dependencies
@@ -565,17 +582,28 @@ Examples:
 
     config = load_config()
 
+    # Handle --all flag
+    if args.all:
+        args.postgres = True
+        args.duckdb = True
+
     # Override config from CLI args
     if args.pg_database:
         config["pg_database"] = args.pg_database
     if args.duckdb_path:
         config["duckdb_path"] = args.duckdb_path
+    config["timeout_ms"] = args.timeout * 1000  # Convert seconds to ms
 
-    use_databend = args.databend and not args.no_databend
+    # If only --postgres or --duckdb is specified (without explicit --databend), disable Databend
+    # This allows "python collect.py tpch --duckdb" to run DuckDB only
+    explicit_databend = "--databend" in sys.argv
+    use_databend = (args.databend and not args.no_databend and
+                    (explicit_databend or (not args.postgres and not args.duckdb)))
 
     benchmark = BENCHMARKS[args.benchmark]
     src_databend = benchmark["input"]
-    src_standard = benchmark.get("input_standard", benchmark["input"])
+    src_postgres = benchmark.get("input_postgres", benchmark["input"])
+    src_duckdb = benchmark.get("input_duckdb", benchmark["input"])
     record_file = benchmark["output"]
     repeat = args.repeat
 
@@ -592,29 +620,41 @@ Examples:
     print(f"Benchmark: {args.benchmark.upper()} - {benchmark['description']}")
     print(f"Databases: {', '.join(output_files.keys())}")
     print(f"Repeat: {repeat}x per query")
+    print(f"Timeout: {args.timeout}s per query")
     print("=" * 60)
 
     # Load queries - different input files for different databases
     sql_statements_databend = None
-    sql_statements_standard = None
+    sql_statements_postgres = None
+    sql_statements_duckdb = None
 
     if use_databend:
         print(f"\nLoading Databend queries from: {src_databend}")
         sql_statements_databend = load_query_from_json(src_databend)
         print(f"Found {len(sql_statements_databend)} queries for Databend")
 
-    if args.postgres or args.duckdb:
-        print(f"\nLoading standard SQL queries from: {src_standard}")
-        if os.path.exists(src_standard):
-            sql_statements_standard = load_query_from_json(src_standard)
-            print(f"Found {len(sql_statements_standard)} queries for PostgreSQL/DuckDB")
+    if args.postgres:
+        print(f"\nLoading PostgreSQL queries from: {src_postgres}")
+        if os.path.exists(src_postgres):
+            sql_statements_postgres = load_query_from_json(src_postgres)
+            print(f"Found {len(sql_statements_postgres)} queries for PostgreSQL")
         else:
-            print(f"  WARNING: Standard SQL input file not found: {src_standard}")
-            print(f"  Falling back to Databend input (queries may fail)")
-            sql_statements_standard = load_query_from_json(src_databend)
+            print(f"  WARNING: PostgreSQL input file not found: {src_postgres}")
+            sql_statements_postgres = load_query_from_json(src_databend)
 
-    # Use Databend queries as the iteration base, or standard if no Databend
-    sql_statements = sql_statements_databend if sql_statements_databend else sql_statements_standard
+    if args.duckdb:
+        print(f"\nLoading DuckDB queries from: {src_duckdb}")
+        if os.path.exists(src_duckdb):
+            sql_statements_duckdb = load_query_from_json(src_duckdb)
+            print(f"Found {len(sql_statements_duckdb)} queries for DuckDB")
+        else:
+            print(f"  WARNING: DuckDB input file not found: {src_duckdb}")
+            print(f"  Falling back to Databend input (queries may fail)")
+            sql_statements_duckdb = load_query_from_json(src_databend)
+
+    # Use Databend queries as the iteration base, or postgres/duckdb if no Databend
+    sql_statements = (sql_statements_databend or sql_statements_postgres or
+                      sql_statements_duckdb)
     num_queries = len(sql_statements)
 
     # Initialize data storage for each database
@@ -625,27 +665,29 @@ Examples:
         start_index = args.start
         print(f"Starting from query index {start_index} (as specified)")
     else:
-        # Check Databend output for resume (primary)
+        # Load existing data for all enabled databases
         start_index = 0
-        if use_databend and os.path.exists(record_file):
-            with open(record_file, "r") as file:
-                data["databend"] = json.load(file)
-            start_index = len(data["databend"])
-            if start_index > 0:
-                print(f"Resuming from query {start_index} ({start_index} already collected)")
-
-        # Load existing data for other databases too
         for db_name, output_path in output_files.items():
-            if db_name != "databend" and os.path.exists(output_path):
+            if os.path.exists(output_path):
                 with open(output_path, "r") as file:
                     data[db_name] = json.load(file)
+
+        # Resume from minimum progress across enabled databases
+        # This ensures we don't skip queries for databases that are behind
+        progress_counts = [len(data[db]) for db in output_files]
+        if progress_counts:
+            start_index = min(progress_counts)
+            if start_index > 0:
+                print(f"Resuming from query {start_index} ({start_index} already collected)")
 
     for idx in range(start_index, num_queries):
         # Get query for each database type
         databend_query = None
         databend_query_with_db = None
-        standard_query = None
-        standard_query_with_db = None
+        postgres_query = None
+        postgres_query_with_db = None
+        duckdb_query = None
+        duckdb_query_with_db = None
         database = "unknown"
 
         if sql_statements_databend:
@@ -653,15 +695,22 @@ Examples:
             databend_query_with_db = databend_sql["query"]
             databend_query, database = databend_query_with_db.rsplit("@", 1)
 
-        if sql_statements_standard:
-            standard_sql = sql_statements_standard[idx]
-            standard_query_with_db = standard_sql["query"]
-            standard_query, db = standard_query_with_db.rsplit("@", 1)
+        if sql_statements_postgres:
+            postgres_sql = sql_statements_postgres[idx]
+            postgres_query_with_db = postgres_sql["query"]
+            postgres_query, db = postgres_query_with_db.rsplit("@", 1)
             if database == "unknown":
                 database = db
 
-        # For display, prefer databend query, fall back to standard
-        display_query = databend_query if databend_query else standard_query
+        if sql_statements_duckdb:
+            duckdb_sql = sql_statements_duckdb[idx]
+            duckdb_query_with_db = duckdb_sql["query"]
+            duckdb_query, db = duckdb_query_with_db.rsplit("@", 1)
+            if database == "unknown":
+                database = db
+
+        # For display, prefer databend query, fall back to postgres/duckdb
+        display_query = databend_query or postgres_query or duckdb_query
         print(f"\n[{idx + 1}/{num_queries}] Processing query on {database}...")
         print(f"  Query: {display_query[:80] if display_query else 'N/A'}...")
 
@@ -696,13 +745,13 @@ Examples:
             save_data_to_file(data["databend"], output_files["databend"])
 
         # ---- PostgreSQL ----
-        if args.postgres and standard_query:
+        if args.postgres and postgres_query:
             print("  [PostgreSQL]")
             pg_db = args.pg_database if args.pg_database else database
             total_cputime, total_scan, total_duration = 0, 0, 0
             for run in range(repeat):
                 print(f"    Run {run + 1}/{repeat}")
-                cputime, scan, duration = record_metrics_postgres(config, standard_query, pg_db)
+                cputime, scan, duration = record_metrics_postgres(config, postgres_query, pg_db)
                 total_cputime += cputime
                 total_scan += scan
                 total_duration += duration
@@ -711,10 +760,10 @@ Examples:
             avg_scan = total_scan / repeat
             avg_duration = total_duration / repeat
 
-            operators = record_operator_postgres(config, standard_query, pg_db)
+            operators = record_operator_postgres(config, postgres_query, pg_db)
 
             data["postgres"].append({
-                "query": standard_query_with_db,
+                "query": postgres_query_with_db,
                 "avg_cpu_time": avg_cputime,
                 "avg_scan_bytes": avg_scan,
                 "avg_duration": avg_duration,
@@ -723,13 +772,13 @@ Examples:
             save_data_to_file(data["postgres"], output_files["postgres"])
 
         # ---- DuckDB ----
-        if args.duckdb and standard_query:
+        if args.duckdb and duckdb_query:
             print("  [DuckDB]")
             duck_db = args.duckdb_path if args.duckdb_path else config["duckdb_path"]
             total_cputime, total_scan, total_duration = 0, 0, 0
             for run in range(repeat):
                 print(f"    Run {run + 1}/{repeat}")
-                cputime, scan, duration = record_metrics_duckdb(config, standard_query, duck_db)
+                cputime, scan, duration = record_metrics_duckdb(config, duckdb_query, duck_db)
                 total_cputime += cputime
                 total_scan += scan
                 total_duration += duration
@@ -738,10 +787,10 @@ Examples:
             avg_scan = total_scan / repeat
             avg_duration = total_duration / repeat
 
-            operators = record_operator_duckdb(config, standard_query, duck_db)
+            operators = record_operator_duckdb(config, duckdb_query, duck_db)
 
             data["duckdb"].append({
-                "query": standard_query_with_db,
+                "query": duckdb_query_with_db,
                 "avg_cpu_time": avg_cputime,
                 "avg_scan_bytes": avg_scan,
                 "avg_duration": avg_duration,

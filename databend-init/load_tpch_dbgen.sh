@@ -26,7 +26,7 @@ echo "Host: ${HOST}:${PORT}"
 echo "Data dir: ${DATA_DIR}"
 echo "========================================"
 
-# Step 1: Generate data using Docker
+# Step 1: Generate data using native dbgen
 generate_data() {
     echo ""
     echo "Step 1: Generating TPC-H data (SF${SCALE_FACTOR})..."
@@ -40,10 +40,25 @@ generate_data() {
         return 0
     fi
 
-    # Use Docker to generate data
-    echo "  Running dbgen via Docker..."
-    docker pull ghcr.io/databloom-ai/tpch-docker:main
-    docker run --rm -v "${DATA_DIR}":/data ghcr.io/databloom-ai/tpch-docker:main dbgen -vf -s ${SCALE_FACTOR}
+    # Use native dbgen (in tpch-dbgen directory)
+    DBGEN_DIR="${SCRIPT_DIR}/tpch-data/tpch-dbgen"
+
+    if [ ! -x "${DBGEN_DIR}/dbgen" ]; then
+        echo "  Building dbgen..."
+        (cd "${DBGEN_DIR}" && make -f makefile.suite)
+    fi
+
+    if [ ! -x "${DBGEN_DIR}/dbgen" ]; then
+        echo "  ERROR: dbgen not found at ${DBGEN_DIR}/dbgen"
+        echo "  Please build it: cd ${DBGEN_DIR} && make -f makefile.suite"
+        exit 1
+    fi
+
+    echo "  Running dbgen -s ${SCALE_FACTOR}..."
+    (cd "${DBGEN_DIR}" && ./dbgen -vf -s ${SCALE_FACTOR})
+
+    # Move generated files to data directory
+    mv "${DBGEN_DIR}"/*.tbl "${DATA_DIR}/" 2>/dev/null || true
 
     # Verify files were created
     echo "  Generated files:"

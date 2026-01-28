@@ -14,20 +14,25 @@
 set -e
 
 DATABASE=${1:-imdb}
-HOST=${2:-localhost}
+HOST=${2:-}
 PORT=${3:-5432}
-USER=${PGUSER:-postgres}
-PASSWORD=${PGPASSWORD:-postgres}
+USER=${PGUSER:-$(whoami)}
+PASSWORD=${PGPASSWORD:-}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="${SCRIPT_DIR}/imdb-data"
 
-export PGPASSWORD="${PASSWORD}"
+# Only set password if provided (peer auth doesn't need it)
+[ -n "${PASSWORD}" ] && export PGPASSWORD="${PASSWORD}"
+
+# Build connection args - omit host for local peer auth
+CONN_ARGS="-p ${PORT} -U ${USER}"
+[ -n "${HOST}" ] && CONN_ARGS="-h ${HOST} ${CONN_ARGS}"
 
 echo "IMDB/JOB PostgreSQL Data Loader"
 echo "========================================"
 echo "Database: ${DATABASE}"
-echo "Host: ${HOST}:${PORT}"
+echo "Host: ${HOST:-local socket}:${PORT}"
 echo "User: ${USER}"
 echo "Data dir: ${DATA_DIR}"
 echo "========================================"
@@ -44,14 +49,14 @@ fi
 # Create database if it doesn't exist
 echo ""
 echo "Step 1: Creating database..."
-psql -h "${HOST}" -p "${PORT}" -U "${USER}" -d postgres -c "DROP DATABASE IF EXISTS ${DATABASE};" 2>/dev/null || true
-psql -h "${HOST}" -p "${PORT}" -U "${USER}" -d postgres -c "CREATE DATABASE ${DATABASE};"
+psql ${CONN_ARGS} -d postgres -c "DROP DATABASE IF EXISTS ${DATABASE};" 2>/dev/null || true
+psql ${CONN_ARGS} -d postgres -c "CREATE DATABASE ${DATABASE};"
 echo "  Created database: ${DATABASE}"
 
 # Create schema
 echo ""
 echo "Step 2: Creating IMDB schema..."
-psql -h "${HOST}" -p "${PORT}" -U "${USER}" -d "${DATABASE}" << 'EOSQL'
+psql ${CONN_ARGS} -d "${DATABASE}" << 'EOSQL'
 -- IMDB/JOB Schema for PostgreSQL
 
 CREATE TABLE aka_name (
@@ -246,13 +251,20 @@ for t in ${TABLES}; do
 
     START=$(date +%s.%N)
 
-    # PostgreSQL COPY command - IMDB CSV files use comma delimiter with quotes
-    psql -h "${HOST}" -p "${PORT}" -U "${USER}" -d "${DATABASE}" -c "\COPY ${t} FROM '${CSV_FILE}' WITH (FORMAT csv, DELIMITER ',', QUOTE '\"', NULL '')" 2>/dev/null
+    # IMDB CSV files use non-standard escaping. Use Python to normalize.
+    python3 -c '
+import sys, re
+with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as f:
+    for line in f:
+        line = re.sub(r"\\\\(?=\")", "", line)
+        line = re.sub(r"\\\"", "\"\"", line)
+        sys.stdout.write(line)
+' "${CSV_FILE}" | psql ${CONN_ARGS} -d "${DATABASE}" -c "\COPY ${t} FROM STDIN WITH (FORMAT csv, DELIMITER ',', QUOTE '\"', NULL '')" 2>/dev/null
 
     END=$(date +%s.%N)
     ELAPSED=$(echo "$END - $START" | bc)
 
-    COUNT=$(psql -h "${HOST}" -p "${PORT}" -U "${USER}" -d "${DATABASE}" -t -c "SELECT COUNT(*) FROM ${t};" | tr -d ' ')
+    COUNT=$(psql ${CONN_ARGS} -d "${DATABASE}" -t -c "SELECT COUNT(*) FROM ${t};" | tr -d ' ')
     echo "${COUNT} rows in ${ELAPSED}s"
 done
 
@@ -285,7 +297,7 @@ EXPECTED[title]=2528312
 
 TOTAL=0
 for t in ${TABLES}; do
-    COUNT=$(psql -h "${HOST}" -p "${PORT}" -U "${USER}" -d "${DATABASE}" -t -c "SELECT COUNT(*) FROM ${t};" 2>/dev/null | tr -d ' ')
+    COUNT=$(psql ${CONN_ARGS} -d "${DATABASE}" -t -c "SELECT COUNT(*) FROM ${t};" 2>/dev/null | tr -d ' ')
     COUNT=${COUNT:-0}
     EXP=${EXPECTED[$t]:-?}
     if [ "${COUNT}" = "${EXP}" ]; then
@@ -305,7 +317,7 @@ printf "  %-18s %'12d\n" "TOTAL:" "${TOTAL}"
 # Create indexes for better query performance
 echo ""
 echo "Step 5: Creating indexes..."
-psql -h "${HOST}" -p "${PORT}" -U "${USER}" -d "${DATABASE}" << 'EOSQL'
+psql ${CONN_ARGS} -d "${DATABASE}" << 'EOSQL'
 -- Foreign key indexes for JOB queries
 CREATE INDEX idx_aka_name_person_id ON aka_name(person_id);
 CREATE INDEX idx_aka_title_movie_id ON aka_title(movie_id);
