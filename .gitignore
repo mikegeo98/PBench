@@ -41,6 +41,7 @@ wheels/
 # Output directories (generated files)
 src/PBench-tool/output/
 src/Baseline/output/
+src/Baseline/output/
 src/Baseline/CAB/output/
 src/Baseline/CAB/tmp_res/
 src/Baseline/Stitcher/output/
@@ -48,6 +49,13 @@ src/Baseline/Stitcher/output/
 # Docker volumes
 databend-data/
 prometheus-data/
+
+# TPC-H generated data
+*.tbl
+databend-init/tpch-data/
+
+# IMDB/JOB data
+databend-init/imdb-data/
 
 # TPC-H generated data
 *.tbl

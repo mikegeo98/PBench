@@ -144,49 +144,6 @@ This will:
 | title | 2,528,312 |
 | ... | ... |
 
-#### 2c. Load Data into PostgreSQL (Optional)
-
-If you want to collect metrics from PostgreSQL in addition to Databend:
-
-```bash
-# Start PostgreSQL (included in docker-compose)
-docker compose up -d postgres
-
-# Load TPC-H data (requires data from step 2a)
-cd databend-init
-./load_tpch_postgres.sh 1 tpch1g
-
-# Load IMDB data (requires data from step 2b)
-./load_imdb_postgres.sh imdb
-cd ..
-```
-
-**Default PostgreSQL credentials:**
-- Host: localhost
-- Port: 5432
-- User: postgres
-- Password: postgres
-
-#### 2d. Load Data into DuckDB (Optional)
-
-DuckDB is an embedded database - no server needed. Load data directly:
-
-```bash
-cd databend-init
-
-# TPC-H: Uses DuckDB's built-in tpch extension (no CSV files needed!)
-python load_tpch_duckdb.py tpch1g.duckdb 1   # SF1 (~1GB)
-
-# IMDB: Loads from CSV files (requires data from step 2b first)
-python load_imdb_duckdb.py imdb.duckdb
-cd ..
-```
-
-DuckDB databases are single files that can be used directly with collect.py:
-```bash
-python collect.py tpch --no-databend --duckdb --duckdb-path databend-init/tpch1g.duckdb
-```
-
 #### 3. Configure Your Experiment
 
 Create a YAML config file in `src/Baseline/configs/`. Example:
@@ -246,7 +203,7 @@ Collect query execution metrics (CPU time, scan bytes, duration, operators) from
 source .venv/bin/activate
 cd src/Collect_metrics
 
-# Collect TPC-H metrics (22 queries) - Databend only
+# Collect TPC-H metrics (22 queries)
 python collect.py tpch
 
 # Collect IMDB/JOB metrics (113 queries)
@@ -256,72 +213,27 @@ python collect.py imdb
 python collect.py tpcds
 ```
 
-**Multi-Database Collection:**
-
-The collector supports three database backends: Databend, PostgreSQL, and DuckDB.
-
-```bash
-# Databend only (default)
-python collect.py tpch
-
-# Databend + PostgreSQL
-python collect.py tpch --postgres
-
-# Databend + DuckDB
-python collect.py tpch --duckdb
-
-# All three databases
-python collect.py tpch --postgres --duckdb
-
-# PostgreSQL/DuckDB only (skip Databend)
-python collect.py tpch --no-databend --postgres
-```
-
 **Options:**
 ```bash
 python collect.py imdb --repeat 1     # Run each query once (faster, less accurate)
 python collect.py imdb --repeat 5     # Run each query 5 times (more accurate)
 python collect.py imdb --start 10     # Resume/start from query index 10
-python collect.py tpch --pg-database tpch1g  # Override PostgreSQL database name
-python collect.py tpch --duckdb-path /path/to/db.duckdb  # Override DuckDB path
 ```
 
 **Prerequisites:**
-- **Databend**: Running with data loaded (see steps 2a/2b), Prometheus scraping metrics (port 9091)
-- **PostgreSQL**: Running with benchmark data loaded (see step 2c), requires `pip install psycopg2-binary`
-- **DuckDB**: Database file with benchmark data (see step 2d), requires `pip install duckdb`
-
-**Environment Configuration** (`.env` file in `src/Collect_metrics/`):
-```bash
-# Databend
-HOST=localhost
-DATABEND_PORT=8000
-PROMETHEUS_PORT=9091
-
-# PostgreSQL (optional)
-PG_HOST=localhost
-PG_PORT=5432
-PG_USER=postgres
-PG_PASSWORD=
-PG_DATABASE=postgres
-
-# DuckDB (optional)
-DUCKDB_PATH=/path/to/benchmark.duckdb
-```
+- Databend running with data loaded (TPC-H, IMDB, or TPC-DS)
+- Prometheus scraping Databend metrics (port 9091)
+- `.env` file configured in `src/Collect_metrics/`:
+  ```
+  HOST=localhost
+  DATABEND_PORT=8000
+  PROMETHEUS_PORT=9091
+  ```
 
 **Output:**
-
-Databend metrics:
-- `metrics_witho/output/TPCH-tpch1g-sql-metrics.json`
-- `metrics_witho/output/imdb-imdb-sql-metrics.json`
-
-PostgreSQL metrics (when `--postgres` is used):
-- `metrics_witho/output/TPCH-tpch1g-sql-metrics-postgres.json`
-- `metrics_witho/output/imdb-imdb-sql-metrics-postgres.json`
-
-DuckDB metrics (when `--duckdb` is used):
-- `metrics_witho/output/TPCH-tpch1g-sql-metrics-duckdb.json`
-- `metrics_witho/output/imdb-imdb-sql-metrics-duckdb.json`
+- `metrics_witho/output/TPCH-tpch1g-sql-metrics.json` - TPC-H metrics
+- `metrics_witho/output/imdb-imdb-sql-metrics.json` - IMDB metrics
+- `metrics_witho/output/tpcds_all-tpcds1g-sql-metrics.json` - TPC-DS metrics
 
 The script automatically resumes from where it left off if interrupted.
 
