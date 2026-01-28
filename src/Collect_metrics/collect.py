@@ -503,10 +503,17 @@ Database backends:
   --duckdb       Collect from DuckDB (uses EXPLAIN ANALYZE)
 
 Examples:
-  python collect.py tpch                    # Databend only
-  python collect.py tpch --postgres         # Databend + PostgreSQL
-  python collect.py imdb --duckdb           # Databend + DuckDB
-  python collect.py imdb --postgres --duckdb  # All three databases
+  # Databend only (default)
+  python collect.py tpch
+
+  # PostgreSQL only
+  python collect.py tpcds --no-databend --postgres --pg-database tpcds1g
+
+  # DuckDB only
+  python collect.py tpcds --no-databend --duckdb --duckdb-path ./tpcds1g.duckdb
+
+  # All three databases
+  python collect.py tpch --all --pg-database tpch1g --duckdb-path ./tpch1g.duckdb
         """
     )
     parser.add_argument(

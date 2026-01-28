@@ -251,25 +251,26 @@ python collect.py tpcds
 
 **Options:**
 ```bash
-python collect.py imdb --repeat 1     # Run each query once (faster, less accurate)
-python collect.py imdb --repeat 5     # Run each query 5 times (more accurate)
-python collect.py imdb --start 10     # Resume/start from query index 10
+# General options
+python collect.py tpch --repeat 1      # Run each query once (faster)
+python collect.py tpch --repeat 5      # Run each query 5 times (more accurate)
+python collect.py tpch --start 10      # Start from query index 10
+python collect.py tpch --timeout 120   # 120s timeout per query (default: 60s)
 
-# Single-database collection (--postgres/--duckdb alone disables Databend)
-python collect.py tpch --databend     # Databend only (default)
-python collect.py tpch --no-databend --postgres     # PostgreSQL only
-python collect.py tpch --no-databend --duckdb       # DuckDB only
+# Databend only (default)
+python collect.py tpch
 
-# Multi-database collection
-python collect.py tpch --databend --postgres  # Databend + PostgreSQL
-python collect.py tpch --databend --duckdb    # Databend + DuckDB
-python collect.py tpch --all                  # All three databases
+# PostgreSQL only
+python collect.py tpch --no-databend --postgres --pg-database tpch1g
+python collect.py tpcds --no-databend --postgres --pg-database tpcds1g
+python collect.py imdb --no-databend --postgres --pg-database imdb
 
-# DuckDB with custom path
-python collect.py tpcds --duckdb --duckdb-path ./tpcds1g.duckdb
+# DuckDB only
+python collect.py tpcds --no-databend --duckdb --duckdb-path ./tpcds1g.duckdb
 
-# PostgreSQL + DuckDB without Databend
-python collect.py tpcds --no-databend --postgres --duckdb
+# Multiple databases
+python collect.py tpch --all --pg-database tpch1g --duckdb-path ./tpch1g.duckdb
+python collect.py tpcds --no-databend --postgres --duckdb --pg-database tpcds1g --duckdb-path ./tpcds1g.duckdb
 ```
 
 **Prerequisites:**
