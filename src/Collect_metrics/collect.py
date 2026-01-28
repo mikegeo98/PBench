@@ -56,6 +56,13 @@ BENCHMARKS = {
         "input_duckdb": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input-duckdb.json",
         "output": "./metrics_witho/output/tpcds_all-tpcds1g-sql-metrics.json",
         "description": "TPC-DS benchmark"
+    },
+    "ceb": {
+        "input":          "./metrics_witho/input/ceb-imdb-sql-input.json",
+        "input_postgres": "./metrics_witho/input/ceb-imdb-sql-input-postgres.json",
+        "input_duckdb":   "./metrics_witho/input/ceb-imdb-sql-input-duckdb.json",
+        "output":         "./metrics_witho/output/ceb-imdb-sql-metrics.json",
+        "description": "CEB benchmark"
     }
 }
 
@@ -496,6 +503,7 @@ Available benchmarks:
   tpch   - TPC-H benchmark (22 queries on tpch1g database)
   imdb   - IMDB/JOB benchmark (113 queries on imdb database)
   tpcds  - TPC-DS benchmark (on tpcds1g database)
+  ceb    - CEB benchmark (13646 on imdb database)
 
 Database backends:
   --databend     Collect from Databend (default, uses Prometheus)
@@ -519,7 +527,7 @@ Examples:
     parser.add_argument(
         "benchmark",
         choices=list(BENCHMARKS.keys()),
-        help="Benchmark to run (tpch, imdb, or tpcds)"
+        help="Benchmark to run (tpch, imdb, ceb, or tpcds)"
     )
     parser.add_argument(
         "--repeat", "-r",

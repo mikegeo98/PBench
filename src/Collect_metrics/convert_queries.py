@@ -154,6 +154,36 @@ def convert_job_query(sql: str) -> str:
     return sql.strip()
 
 
+def flatten_sql(sql: str) -> str:
+    """Return a single-line SQL string with normalized spacing."""
+    return " ".join(sql.strip().split())
+
+
+def convert_ceb_query(sql: str, dialect: str) -> str:
+    """
+    Convert CEB query to the requested dialect.
+
+    At the moment the queries are written in a PostgreSQL-compatible style
+    (ILIKE, ::float casts, regex '~'). Apply dialect-specific tweaks where
+    needed before flattening.
+    """
+    sql = sql.strip()
+
+    # Regex operator: replace "~ 'pattern'" with the dialect's regex form.
+    if dialect in ("duckdb", "databend"):
+        sql = re.sub(r"(\S+)\s*~\s*'([^']*)'", r"\1 REGEXP '\2'", sql)
+
+    # Databend does not support ILIKE; rewrite to LOWER(col) LIKE LOWER(pattern)
+    if dialect == "databend":
+        def _ilike_replace(match: re.Match) -> str:
+            lhs, rhs = match.group(1), match.group(2)
+            return f"LOWER({lhs}) LIKE LOWER({rhs})"
+
+        sql = re.sub(r"([A-Za-z0-9_.]+)\s+ILIKE\s+('[^']*')", _ilike_replace, sql, flags=re.IGNORECASE)
+
+    return flatten_sql(sql)
+
+
 def process_tpch_queries(input_dir: Path, output_dir: Path, database: str) -> list:
     """Process TPC-H queries and return list for input JSON."""
     queries = []
@@ -204,6 +234,21 @@ def process_job_queries(input_dir: Path, output_dir: Path, database: str) -> lis
     return queries
 
 
+def process_ceb_queries(input_dir: Path, database: str, dialect: str) -> list:
+    """Process CEB queries (across all subfolders) and return list for input JSON."""
+    queries = []
+
+    for folder in sorted(p for p in input_dir.iterdir() if p.is_dir()):
+        for query_file in sorted(folder.glob("*.sql")):
+            sql = query_file.read_text()
+            converted = convert_ceb_query(sql, dialect)
+            queries.append({
+                "query": f"{converted}@{database}"
+            })
+
+    return queries
+
+
 def main():
     base_dir = Path(__file__).parent.parent.parent  # PBench root
     sql_queries_dir = base_dir / "sql_queries"
@@ -213,7 +258,7 @@ def main():
     # Process TPC-H queries
     print("Processing TPC-H queries...")
     tpch_queries = process_tpch_queries(
-        sql_queries_dir / "sql_redshift",
+        sql_queries_dir / "tpch",
         output_dir,
         "tpch1g"  # Default database
     )
@@ -242,6 +287,35 @@ def main():
     with open(output_dir / "imdb-imdb-sql-input.json", "w") as f:
         json.dump(job_queries, f, indent=2)
     print(f"  Created {len(job_queries)} JOB queries")
+
+    # Process CEB queries (IMDB schema, no dialect-specific rewrites yet)
+    print("Processing CEB queries...")
+    ceb_queries_databend = process_ceb_queries(
+        sql_queries_dir / "ceb",
+        "imdb",
+        dialect="databend"
+    )
+    with open(output_dir / "ceb-imdb-sql-input.json", "w") as f:
+        json.dump(ceb_queries_databend, f, indent=2)
+    print(f"  Created {len(ceb_queries_databend)} CEB queries (Databend/default)")
+
+    # If a dialect needs special handling later, generate dedicated files here.
+    ceb_queries_postgres = process_ceb_queries(
+        sql_queries_dir / "ceb",
+        "imdb",
+        dialect="postgres"
+    )
+    with open(output_dir / "ceb-imdb-sql-input-postgres.json", "w") as f:
+        json.dump(ceb_queries_postgres, f, indent=2)
+
+    ceb_queries_duckdb = process_ceb_queries(
+        sql_queries_dir / "ceb",
+        "imdb",
+        dialect="duckdb"
+    )
+    with open(output_dir / "ceb-imdb-sql-input-duckdb.json", "w") as f:
+        json.dump(ceb_queries_duckdb, f, indent=2)
+    print(f"  Created CEB queries for Postgres and DuckDB (currently identical)")
 
     print("\nDone! Input files created in:", output_dir)
 
