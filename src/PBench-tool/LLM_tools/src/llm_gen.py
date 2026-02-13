@@ -446,7 +446,7 @@ class Llm:
             print(f"cur_key: {key}")
         os.environ["OPENAI_API_KEY"] = key
         if self.client is None:
-            self.client = OpenAI(base_url="https://35.aigcbest.top/v1")
+            self.client = OpenAI()
         messages = [
             {
                 "role": "system",
@@ -479,7 +479,7 @@ class Llm:
             print(f"cur_key: {key}")
         os.environ["OPENAI_API_KEY"] = key
         if self.client is None:
-            self.client = OpenAI(base_url="https://35.aigcbest.top/v1")
+            self.client = OpenAI()
         completion = self.client.chat.completions.create(
             model=self.model,
             messages=[
