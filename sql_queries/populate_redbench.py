@@ -3,8 +3,7 @@
 
 Default behavior:
 - Copies all files from ../job into ./job/.
-- Samples X SQL files per ../ceb/<template>/ into ./ceb/ (flat), prefixing
-  filenames with the template name.
+- Samples X SQL files per ../ceb/<template>/ into ./ceb/<template>/.
 
 Sampling is deterministic with a base seed.
 """
@@ -111,11 +110,6 @@ def sample_ceb_templates(
     template_count = 0
     total_sampled = 0
 
-    if dry_run:
-        print(f"[dry-run] ensure dir {redbench_ceb_dir}")
-    else:
-        redbench_ceb_dir.mkdir(parents=True, exist_ok=True)
-
     for template_dir in sorted(
         (p for p in ceb_dir.iterdir() if p.is_dir()), key=lambda p: p.name
     ):
@@ -139,13 +133,17 @@ def sample_ceb_templates(
         rng = stable_template_rng(seed, template_dir.name)
         chosen = sorted(rng.sample(sql_files, n), key=lambda p: p.name)
 
+        out_dir = redbench_ceb_dir / template_dir.name
+        if dry_run:
+            print(f"[dry-run] ensure dir {out_dir}")
+        else:
+            out_dir.mkdir(parents=True, exist_ok=True)
+
         for src in chosen:
-            dst = redbench_ceb_dir / f"{template_dir.name}__{src.name}"
+            dst = out_dir / src.name
             if dry_run:
                 print(f"[dry-run] copy CEB {src} -> {dst}")
             else:
-                if dst.exists():
-                    raise FileExistsError(f"Destination already exists: {dst}")
                 shutil.copy2(src, dst)
 
         total_sampled += len(chosen)
@@ -159,8 +157,8 @@ def main() -> int:
         print("--per-template must be >= 0", file=sys.stderr)
         return 2
 
-    redbench_dir = Path(__file__).resolve().parent
-    sql_queries_dir = redbench_dir.parent
+    sql_queries_dir = Path(__file__).resolve().parent
+    redbench_dir = sql_queries_dir / "redbench"
     job_dir = sql_queries_dir / "job"
     ceb_dir = sql_queries_dir / "ceb"
     redbench_job_dir = redbench_dir / "job"

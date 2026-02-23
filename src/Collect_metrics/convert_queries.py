@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert TPC-H, TPC-DS, and JOB queries to Databend-compatible format
+Convert TPC-H, TPC-DS, JOB, CEB, and Redbench queries to Databend-compatible format
 and generate input JSON files for metrics collection.
 """
 import json
@@ -316,6 +316,57 @@ def main():
     with open(output_dir / "ceb-imdb-sql-input-duckdb.json", "w") as f:
         json.dump(ceb_queries_duckdb, f, indent=2)
     print(f"  Created CEB queries for Postgres and DuckDB (currently identical)")
+
+    # Process Redbench queries (JOB + sampled CEB)
+    redbench_dir = sql_queries_dir / "redbench"
+    redbench_job_dir = redbench_dir / "job"
+    redbench_ceb_dir = redbench_dir / "ceb"
+    if redbench_job_dir.is_dir() and redbench_ceb_dir.is_dir():
+        print("Processing Redbench queries...")
+
+        redbench_job_queries = process_job_queries(
+            redbench_job_dir,
+            output_dir,
+            "imdb"
+        )
+
+        redbench_ceb_queries_databend = process_ceb_queries(
+            redbench_ceb_dir,
+            "imdb",
+            dialect="databend"
+        )
+        redbench_queries_databend = redbench_job_queries + redbench_ceb_queries_databend
+        with open(output_dir / "redbench-imdb-sql-input.json", "w") as f:
+            json.dump(redbench_queries_databend, f, indent=2)
+
+        redbench_ceb_queries_postgres = process_ceb_queries(
+            redbench_ceb_dir,
+            "imdb",
+            dialect="postgres"
+        )
+        redbench_queries_postgres = redbench_job_queries + redbench_ceb_queries_postgres
+        with open(output_dir / "redbench-imdb-sql-input-postgres.json", "w") as f:
+            json.dump(redbench_queries_postgres, f, indent=2)
+
+        redbench_ceb_queries_duckdb = process_ceb_queries(
+            redbench_ceb_dir,
+            "imdb",
+            dialect="duckdb"
+        )
+        redbench_queries_duckdb = redbench_job_queries + redbench_ceb_queries_duckdb
+        with open(output_dir / "redbench-imdb-sql-input-duckdb.json", "w") as f:
+            json.dump(redbench_queries_duckdb, f, indent=2)
+
+        print(
+            "  Created "
+            f"{len(redbench_queries_databend)} Redbench queries "
+            f"({len(redbench_job_queries)} JOB + {len(redbench_ceb_queries_databend)} CEB)"
+        )
+    else:
+        print(
+            "Skipping Redbench queries (expected folders missing): "
+            f"{redbench_job_dir} and/or {redbench_ceb_dir}"
+        )
 
     print("\nDone! Input files created in:", output_dir)
 
