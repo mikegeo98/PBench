@@ -100,21 +100,95 @@ Input data:
 
 ```bash
 python src/Workloads/create_redset_aggregates.py \
-  --redset-parquet original-workload-files/Redset/full.parquet \
-  --instance-id 0 \
-  --database-id 0 \
-  --start 2024-03-01T01:00:00Z \
+  --redset-parquet original-workload-files/Redset/provisioned/full.parquet \
+  --instance-id 186 \
+  --database-id 8 \
+  --start 2024-05-10T21:00:00Z \
   --duration-seconds 3600 \
   --bucket-seconds 300 \
   --subbucket-seconds 30 \
   --seed 42 \
   --filter-mode proxy \
   --sort-mode deterministic \
-  --output src/Workloads/Redset/workload1h-5m-30s_db0.csv
+  --output src/Workloads/Redset/workload1h-5m-30s_186_8_1.csv
 ```
 
 If `--start` is omitted, the script automatically uses the first
 `arrival_timestamp` for the selected `instance_id` + `database_id`.
+
+### Multiple workload files (provisioned Redset, `instance_id=186`, `database_id=8`)
+
+The file `original-workload-files/Redset/provisioned/full.parquet` contains
+the pair `instance_id=186`, `database_id=8` (about 48k rows between
+`2024-05-04` and `2024-05-13`). The commands below use high-activity 1-hour
+windows so the resulting workload files are non-trivial.
+
+```bash
+python src/Workloads/create_redset_aggregates.py \
+  --redset-parquet original-workload-files/Redset/provisioned/full.parquet \
+  --instance-id 186 \
+  --database-id 8 \
+  --start 2024-05-10T21:00:00Z \
+  --duration-seconds 3600 \
+  --bucket-seconds 300 \
+  --subbucket-seconds 30 \
+  --seed 42 \
+  --filter-mode proxy \
+  --sort-mode deterministic \
+  --output src/Workloads/Redset/workload1h-5m-30s_186_8_1.csv
+
+python src/Workloads/create_redset_aggregates.py \
+  --redset-parquet original-workload-files/Redset/provisioned/full.parquet \
+  --instance-id 186 \
+  --database-id 8 \
+  --start 2024-05-06T15:00:00Z \
+  --duration-seconds 3600 \
+  --bucket-seconds 300 \
+  --subbucket-seconds 30 \
+  --seed 42 \
+  --filter-mode proxy \
+  --sort-mode deterministic \
+  --output src/Workloads/Redset/workload1h-5m-30s_186_8_2.csv
+
+python src/Workloads/create_redset_aggregates.py \
+  --redset-parquet original-workload-files/Redset/provisioned/full.parquet \
+  --instance-id 186 \
+  --database-id 8 \
+  --start 2024-05-13T12:00:00Z \
+  --duration-seconds 3600 \
+  --bucket-seconds 300 \
+  --subbucket-seconds 30 \
+  --seed 42 \
+  --filter-mode proxy \
+  --sort-mode deterministic \
+  --output src/Workloads/Redset/workload1h-5m-30s_186_8_3.csv
+
+python src/Workloads/create_redset_aggregates.py \
+  --redset-parquet original-workload-files/Redset/provisioned/full.parquet \
+  --instance-id 186 \
+  --database-id 8 \
+  --start 2024-05-10T23:00:00Z \
+  --duration-seconds 3600 \
+  --bucket-seconds 300 \
+  --subbucket-seconds 30 \
+  --seed 42 \
+  --filter-mode proxy \
+  --sort-mode deterministic \
+  --output src/Workloads/Redset/workload1h-5m-30s_186_8_4.csv
+
+python src/Workloads/create_redset_aggregates.py \
+  --redset-parquet original-workload-files/Redset/provisioned/full.parquet \
+  --instance-id 186 \
+  --database-id 8 \
+  --start 2024-05-12T19:00:00Z \
+  --duration-seconds 3600 \
+  --bucket-seconds 300 \
+  --subbucket-seconds 30 \
+  --seed 42 \
+  --filter-mode proxy \
+  --sort-mode deterministic \
+  --output src/Workloads/Redset/workload1h-5m-30s_186_8_5.csv
+```
 
 ### Mapping to aggregate fields
 
