@@ -181,6 +181,16 @@ def convert_ceb_query(sql: str, dialect: str) -> str:
 
         sql = re.sub(r"([A-Za-z0-9_.]+)\s+ILIKE\s+('[^']*')", _ilike_replace, sql, flags=re.IGNORECASE)
 
+        # Do not rely on regex predicate short-circuiting before casts in Databend.
+        # Replace PostgreSQL-style `expr::float` with a null-safe cast so malformed
+        # values in imdb text fields (e.g., mii1.info) do not fail the query.
+        sql = re.sub(
+            r"([A-Za-z0-9_.]+)\s*::\s*float(?:4|8)?\b",
+            r"TRY_CAST(\1 AS DOUBLE)",
+            sql,
+            flags=re.IGNORECASE,
+        )
+
     return flatten_sql(sql)
 
 
