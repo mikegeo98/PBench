@@ -19,7 +19,18 @@ def read_sql_records(query_set, database):
     """ Read SQL records from a JSON file. """
     record_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
     with open(record_file, "r") as f:
-        return json.load(f)
+        records = json.load(f)
+    normalized = []
+    for record in records:
+        if any(k not in record for k in ["query", "avg_cpu_time", "avg_scan_bytes", "avg_duration"]):
+            continue
+        head = record["query"].lstrip().upper()
+        if not (head.startswith("SELECT") or head.startswith("WITH") or head.startswith("EXPLAIN")):
+            continue
+        for op in ["filter", "join", "agg", "sort"]:
+            record.setdefault(op, 0)
+        normalized.append(record)
+    return normalized
 
 
 class Problem(Annealer):

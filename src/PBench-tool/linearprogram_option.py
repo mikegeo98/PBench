@@ -18,7 +18,20 @@ def read_sql_records(query_set, database):
     """ Read SQL records from a JSON file. """
     record_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
     with open(record_file, "r") as f:
-        return json.load(f)
+        records = json.load(f)
+
+    normalized = []
+    for record in records:
+        # Skip malformed entries without the required core metrics (e.g. DDL blobs).
+        if any(k not in record for k in ["query", "avg_cpu_time", "avg_scan_bytes", "avg_duration"]):
+            continue
+        head = record["query"].lstrip().upper()
+        if not (head.startswith("SELECT") or head.startswith("WITH") or head.startswith("EXPLAIN")):
+            continue
+        for op in ["filter", "join", "agg", "sort"]:
+            record.setdefault(op, 0)
+        normalized.append(record)
+    return normalized
 
 
 def solve_integer_linear_programming_with_normalization(config, items, target_cpu_time, target_scan_bytes, target_duration, time_limit, target_filter=None, target_join=None, target_agg=None, target_sort=None, count_limit=None,real_count=None):
