@@ -110,10 +110,6 @@ def execute_threads(config, sql_per_time_interval):
                     query[i] = re.sub(r"as\s'([^']+)'", r'as "\1"', query[i])
                 # add the last semicolon to each query
                 query = [q + ";" for q in query]
-                for i in range(len(query)):
-                    q = query[i]
-                    if not q.startswith("Explain Analyze") and not q.startswith("EXPLAIN ANALYZE"):
-                        query[i] = "Explain Analyze " + query[i]
                 for q in query:
                     future = executor.submit(execute_query, config["host"], config["databend_port"], q, database)
                     futures.append(future)

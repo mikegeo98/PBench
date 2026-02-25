@@ -2,7 +2,7 @@ workload_path: ../../src/Workloads/Snowset/workload1h-5m-30s_3.csv
 workload_name: workload1h-5m-30s_3
 host: localhost
 databend_port: 8000
-prometheus_port: 9090
+prometheus_port: 9091
 count_limit: 1000
 time_limit: 270
 use_operator: 1

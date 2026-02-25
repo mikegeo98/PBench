@@ -42,6 +42,7 @@ wheels/
 
 # PBench specific
 # Output directories (generated files)
+src/Collect_metrics/metrics_witho/output/
 src/PBench-tool/output/
 src/Baseline/output/
 src/Baseline/output/

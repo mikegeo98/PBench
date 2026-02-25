@@ -1,7 +1,0 @@
-[
-  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_0 AS t1 WHERE t1.col1 > 0 GROUP BY t1.col2@llm"},
-  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_1 AS t1 WHERE t1.col1 > 1 GROUP BY t1.col2@llm"},
-  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_2 AS t1 WHERE t1.col1 > 2 GROUP BY t1.col2@llm"},
-  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_3 AS t1 WHERE t1.col1 > 3 GROUP BY t1.col2@llm"},
-  {"query": "SELECT t1.col2, COUNT(*) AS cnt FROM llm.table_4 AS t1 WHERE t1.col1 > 4 GROUP BY t1.col2@llm"}
-]

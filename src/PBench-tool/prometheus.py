@@ -12,14 +12,15 @@ def query_prometheus(host, port, time, query):
         if res["status"] == "success":
             return float(res["data"]["result"][0]["value"][1])
         return 0.0
-    except Exception as _:
+    except Exception as e:
+        print(f"    PROMETHEUS ERROR: {type(e).__name__}: {e}")
         return 0.0
 
 
 prometheus_queries = {
-    # "cpu_new": partial(query_prometheus, query="sum(databend_process_cpu_seconds_total_total)"),
-    "cpu_new": partial(query_prometheus, query="sum(max(databend_process_cpu_seconds_total_total) by (instance))"),
-    # "cpu_new": partial(query_prometheus, query="sum(node_cpu_seconds_total{mode=~\"system|user\"})"),
-    # "scan": partial(query_prometheus, query="sum(databend_query_scan_bytes_total)")
-    "scan": partial(query_prometheus, query="sum(max(databend_query_scan_bytes_total) by (instance))")
+    # CPU time counter
+    "cpu_new": partial(query_prometheus, query="sum(databend_process_cpu_seconds_total_total)"),
+    "cpu": partial(query_prometheus, query="sum(databend_process_cpu_seconds_total_total)"),
+    # Scan bytes - filter to kind=\"Query\" to track actual query scans
+    "scan": partial(query_prometheus, query='sum(databend_query_scan_bytes_total{kind="Query"})')
 }

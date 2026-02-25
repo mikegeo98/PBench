@@ -195,23 +195,38 @@ def set_query_timestamp(config, workload, plans):
             if "@" not in record["query"]:
                 record["query"] = record["query"] + "@" + database
             sql_candidates.append(record)
-    
+
+    # Build normalized lookup once. Some plans store only counts (float) and need enrichment.
+    candidate_lookup = {delete_space(candidate["query"]): candidate for candidate in sql_candidates}
+
     for plan in plans:
-        for query, count in plan["queries"].items():
-            for candidate in sql_candidates:
-                if delete_space(candidate["query"]) == delete_space(query):
-                    plan["queries"][query] = {
-                        "count": count,
-                        "interval": config["interval"],
-                        "avg_cpu_time": candidate["avg_cpu_time"],
-                        "avg_scan_bytes": candidate["avg_scan_bytes"],
-                        "avg_duration": candidate["avg_duration"],
-                        "avg_lasted": int(candidate["avg_duration"] // config["interval"] + 1),
-                        "filter": candidate["filter"],
-                        "agg": candidate["agg"],
-                        "sort": candidate["sort"],
-                        "join": candidate["join"]
-                    }
+        enriched_queries = {}
+        for query, value in (plan.get("queries") or {}).items():
+            # Already enriched (defensive compatibility).
+            if isinstance(value, dict):
+                enriched_queries[query] = value
+                continue
+
+            count = value
+            candidate = candidate_lookup.get(delete_space(query))
+            if candidate is None:
+                # If we cannot recover metrics for this query, skip it instead of crashing SA.
+                print(f"[SA] Warning: query not found in candidate pool, skipping: {query[:120]}")
+                continue
+
+            enriched_queries[query] = {
+                "count": count,
+                "interval": config["interval"],
+                "avg_cpu_time": candidate["avg_cpu_time"],
+                "avg_scan_bytes": candidate["avg_scan_bytes"],
+                "avg_duration": candidate["avg_duration"],
+                "avg_lasted": int(candidate["avg_duration"] // config["interval"] + 1),
+                "filter": candidate["filter"],
+                "agg": candidate["agg"],
+                "sort": candidate["sort"],
+                "join": candidate["join"],
+            }
+        plan["queries"] = enriched_queries
     cputime_interval = workload["cputime_interval"].to_list()
     cputime_interval = [json.loads(x) for x in cputime_interval]
 

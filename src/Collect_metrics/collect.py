@@ -157,10 +157,11 @@ def execute_query_databend(host, port, query, database, explain_analyze=False):
     return ret
 
 
-def record_metrics_databend(host, databend_port, prometheus_port, query, database):
+def record_metrics_databend(host, databend_port, prometheus_port, query, database, scrape_wait_s=2.0):
     """ Record metrics from Databend using Prometheus. """
-    # Wait for fresh Prometheus scrape before starting (scrape interval is 5s)
-    time.sleep(6)
+    # Wait for a fresh Prometheus scrape before/after query execution.
+    # Keep this aligned with the Prometheus scrape interval (e.g. ~2s for 1s scrapes).
+    time.sleep(scrape_wait_s)
 
     start_time = get_time()
     print(f"  Start time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}")
@@ -174,7 +175,7 @@ def record_metrics_databend(host, databend_port, prometheus_port, query, databas
     query_duration = get_time() - query_start
 
     # Wait for Prometheus to scrape new metrics
-    time.sleep(6)
+    time.sleep(scrape_wait_s)
 
     end_time = get_time()
     print(f"  End time: {datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')}")
@@ -589,6 +590,12 @@ Examples:
         help="Query timeout in seconds (default: 60). Increase for slow queries."
     )
     parser.add_argument(
+        "--prometheus-wait-seconds",
+        type=float,
+        default=2.0,
+        help="Seconds to wait before/after Databend query to allow Prometheus scrapes (default: 2.0 for 1s scrape interval).",
+    )
+    parser.add_argument(
         "--all",
         action="store_true",
         help="Collect from all three databases (Databend, PostgreSQL, DuckDB)"
@@ -644,6 +651,8 @@ Examples:
     print(f"Databases: {', '.join(output_files.keys())}")
     print(f"Repeat: {repeat}x per query")
     print(f"Timeout: {args.timeout}s per query")
+    if use_databend:
+        print(f"Prometheus wait: {args.prometheus_wait_seconds:.1f}s (before/after each Databend query)")
     print("=" * 60)
 
     # Load queries - different input files for different databases
@@ -745,7 +754,7 @@ Examples:
                 print(f"    Run {run + 1}/{repeat}")
                 cputime, scan, duration = record_metrics_databend(
                     config["host"], config["databend_port"], config["prometheus_port"],
-                    databend_query, database
+                    databend_query, database, scrape_wait_s=args.prometheus_wait_seconds
                 )
                 total_cputime += cputime
                 total_scan += scan

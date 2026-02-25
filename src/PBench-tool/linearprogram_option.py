@@ -91,7 +91,7 @@ def solve_integer_linear_programming_with_normalization(config, items, target_cp
 
 def solve_integer_linear_programming_cycle(config, items, target_cpu_time, target_scan_bytes, target_duration, time_limit, target_filter=None, target_join=None, target_agg=None, target_sort=None, count_limit=None,init_count=None):
     min_diff, solution = solve_integer_linear_programming_with_normalization(config, items, target_cpu_time, target_scan_bytes, target_duration, time_limit, target_filter, target_join, target_agg, target_sort, count_limit,real_count=init_count)
-    sql_count = dict(zip([json.dumps(candidate["query"]) for candidate in items], solution))
+    sql_count = dict(zip([candidate["query"] for candidate in items], solution))
     total_count = sum(sql_count.values())
     max_try = 4
     print(f"Total Count: {total_count}, Init Count: {init_count}")
@@ -99,7 +99,7 @@ def solve_integer_linear_programming_cycle(config, items, target_cpu_time, targe
         max_try -= 1
         init_count = total_count
         min_diff, solution = solve_integer_linear_programming_with_normalization(config, items, target_cpu_time, target_scan_bytes, target_duration, time_limit, target_filter, target_join, target_agg, target_sort, count_limit,real_count=init_count)
-        sql_count = dict(zip([json.dumps(candidate["query"]) for candidate in items], solution))
+        sql_count = dict(zip([candidate["query"] for candidate in items], solution))
         total_count = sum(sql_count.values())
         print(f"Total Count: {total_count}, Init Count: {init_count}")
     return min_diff, solution
@@ -155,8 +155,7 @@ def generate_workload(config,is_test):
             end = get_time()
             total_time += end - begin
 
-            sql_count = dict(zip([json.dumps(candidate["query"]) for candidate in sql_candidates], solution)) 
-            # sql_count = dict(zip([candidate["query"] for candidate in sql_candidates], solution)) 
+            sql_count = dict(zip([candidate["query"] for candidate in sql_candidates], solution))
             sqls = {sql: count for sql, count in sql_count.items() if count > 0}
             
             # Performance Metrics
@@ -214,8 +213,7 @@ def generate_workload(config,is_test):
                 )
                 end = get_time()
                 total_time += end - begin
-                sql_count = dict(zip([json.dumps(candidate["query"]) for candidate in sql_candidates], solution)) 
-                # sql_count = dict(zip([candidate["query"] for candidate in sql_candidates], solution)) 
+                sql_count = dict(zip([candidate["query"] for candidate in sql_candidates], solution))
                 sqls = {sql: count for sql, count in sql_count.items() if count > 0}
                 # Performance Metrics
                 cpu_sum = sum([candidate["avg_cpu_time"] * sql_count for candidate, sql_count in zip(sql_candidates, solution)])
@@ -269,8 +267,7 @@ def generate_workload(config,is_test):
             end = get_time()
             total_time += end - begin
 
-            sql_count = dict(zip([json.dumps(candidate["query"]) for candidate in sql_candidates], solution)) 
-            # sql_count = dict(zip([candidate["query"] for candidate in sql_candidates], solution)) 
+            sql_count = dict(zip([candidate["query"] for candidate in sql_candidates], solution))
             sqls = {sql: count for sql, count in sql_count.items() if count > 0}
             
             # Performance Metrics
@@ -305,12 +302,6 @@ def save_plan(config, results):
     plan_path = f"{plan_dir}/{back}-plan.json"
     with open(plan_path, "w") as f:
         json.dump(results, f, indent=2)
-    # reopen the file and delete the \\" in the file
-    with open(plan_path, "r") as f:
-        lines = f.readlines()
-    with open(plan_path, "w") as f:
-        for line in lines:
-            f.write(line.replace('\\"', ''))
 
 def ILP_work(config):
     s = time.time()
