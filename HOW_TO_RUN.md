@@ -87,6 +87,31 @@ export PGUSER=myuser
 export PGPASSWORD=mypassword
 ```
 
+### 5. Set Up Firebolt-Core (Optional)
+```
+# Install MinIO from legacy binary (TODO: replace)
+# Install MinIO client mc
+
+# Replicate TPC-H data to object store
+./mc alias set local http://localhost:9000 minioadmin minioadmin
+./mc mirror tpch-data local/tpch
+
+# StartMinIO server
+minio server /home/shared
+
+# Install Firebolt-core (docker)
+cd firebolt-core
+chmod +x get_core.sh
+./get_core.sh
+mkdir -p ./firebolt-core-data
+sudo chown -R 1111:1111 ./firebolt-core-data
+
+# Verify CLI is running
+docker exec -ti fb --core "SELECT 42;"
+
+# Alternatively, you can also install the standalone cli (https://github.com/firebolt-db/fb-cli)
+```
+
 ## Running PBench
 
 ### Complete Workflow

@@ -1,0 +1,7 @@
+{
+    "nodes": [
+    {
+        "host": "localhost"
+    }],
+    "default_s3_endpoint_override": "http://host.docker.internal:9000"
+}

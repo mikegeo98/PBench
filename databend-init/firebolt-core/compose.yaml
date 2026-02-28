@@ -1,0 +1,87 @@
+# This is an example of a docker-compose file that can be used to run a Firebolt Core instance, in this case the node 0.
+# All required ports are exposed, the config file is mounted to the container, and the container has the required privileges.
+
+services:
+  core:
+    container_name: ${COMPOSE_PROJECT_NAME}-node-${NODE:-0}
+    # The Docker image from which to start the container.
+    image: ${CORE_IMAGE:-ghcr.io/firebolt-db/firebolt-core:preview-rc}
+    pull_policy: always
+    # Corresponds to the `--interactive` argument passed to `docker run`.
+    stdin_open: true
+    healthcheck:
+      test: ["CMD", "fbcli", "--command", "SELECT 42;"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    network_mode: host
+    # run as non-root by default; this requires the outer volume directory to have the correct permissions
+    # in some specific cases (like Docker-for-Mac) running as root is still necessary
+    user: "${CORE_USER:-firebolt-core}"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        # All variables defined here, and commands like id -u, stat -c, should be escaped with $$
+        VOLUME_PATH='/firebolt-core/volume'
+        
+        EXPECTED_UID=$$(id -u)
+        EXPECTED_GID=$$(id -g)
+        CURRENT_OWNER_UID=$$(stat -c '%u' "$${VOLUME_PATH}")
+        CURRENT_OWNER_GID=$$(stat -c '%g' "$${VOLUME_PATH}")
+        
+        echo '[setup] detected data volume owner UID: '$${CURRENT_OWNER_UID}', GID: '$${CURRENT_OWNER_GID}''
+        echo '[setup] expected data volume owner UID: '$${EXPECTED_UID}', GID: '$${EXPECTED_GID}''
+        
+        if [ "$${CURRENT_OWNER_UID}" -ne "$${EXPECTED_UID}" ] || [ "$${CURRENT_OWNER_GID}" -ne "$${EXPECTED_GID}" ]; then
+            echo 'ERROR: The mounted data volume '"$${VOLUME_PATH}"' is NOT owned by the expected user (UID:'"$${EXPECTED_UID}"', GID:'"$${EXPECTED_GID}"').'
+            echo 'Please ensure the host directory for the data volume is owned by UID '"$${EXPECTED_UID}"' and GID '"$${EXPECTED_GID}"'.'
+            echo 'Example commands to run on your host:'
+            echo '    mkdir -p ./firebolt-core-data'
+            echo '    sudo chown -R '"$${EXPECTED_UID}"':'"$${EXPECTED_GID}"' ./firebolt-core-data'
+
+            # wait forever, exiting would case container to be restarted
+            sleep inf
+        fi
+        
+        exec /firebolt-core/firebolt-core --node ${NODE:-0}
+
+    # Corresponds to the `--tty` argument passed to `docker run`.
+    tty: true
+    # Corresponds to the `--security-opt seccomp=unconfined` argument passed to `docker run`.
+    security_opt:
+      - seccomp=unconfined
+    # Corresponds to the `--ulimit memlock` argument passed to `docker run`.
+    ulimits:
+      memlock:
+        hard: 8589934592
+        soft: 8589934592
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+    # Unlike single nodes, all inter-node communication endpoints need to be exposed in addition to the HTTP endpoints. Furthermore, they need to be exposed publicly on `0.0.0.0` instead on `localhost` so that they can be reached from other nodes over the network.
+    ports:
+      - "3473:3473"   # HTTP query endpoint
+      - "8122:8122"   # HTTP health check endpoint
+      - "5678:5678"   # Inter-node communication channel for the distributed execution control plane.
+      - "16000:16000" # Inter-node communication channel for the distributed execution data plane.
+      - "1717:1717"   # Inter-node communication channel for the storage service.
+      - "3434:3434"   # Inter-node communication channel for the storage service.
+      - "6500:6500"   # Inter-node communication channel for the metadata service.
+      - "9090:9090"   # Prometheus metrics.
+    # Mount the configuration file at the expected location within the container. Additional storage mounts for persistent and temporary data could also be specified here.
+    volumes:
+      - ${PWD}/config.json:/firebolt-core/config.json:ro
+      # Enable persistence of data, metadata, logs and diagnostic information
+      - ${PWD}/firebolt-core-data:/firebolt-core/volume
+  ui:
+    image: ghcr.io/firebolt-db/firebolt-core-ui:latest
+    pull_policy: always
+    depends_on:
+      core:
+        condition: service_healthy
+    links:
+      - core
+    environment:
+      FIREBOLT_CORE_URL: http://core:3473
+    ports:
+     - 9100:9100
