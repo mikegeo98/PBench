@@ -92,7 +92,7 @@ export PGPASSWORD=mypassword
 # Install MinIO from legacy binary (TODO: replace)
 # Install MinIO client mc
 
-# Replicate TPC-H data to object store
+# Replicate TPC-H data to object store (Repeat for other datasets)
 ./mc alias set local http://localhost:9000 minioadmin minioadmin
 ./mc mirror tpch-data local/tpch
 
@@ -105,6 +105,9 @@ chmod +x get_core.sh
 ./get_core.sh
 mkdir -p ./firebolt-core-data
 sudo chown -R 1111:1111 ./firebolt-core-data
+
+# Start Docker Container
+sudo docker-compose up
 
 # Verify CLI is running
 docker exec -ti fb --core "SELECT 42;"
