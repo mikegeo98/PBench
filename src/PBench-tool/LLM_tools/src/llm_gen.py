@@ -320,14 +320,51 @@ def load_config():
     }
 
 
+def resolve_llm_model(config=None):
+    if isinstance(config, dict):
+        model = config.get("llm_model")
+        if model:
+            return model
+    return os.getenv("OPENAI_MODEL", "gpt-4o")
+
+
+def get_metrics_output_dir():
+    return os.path.join(os.path.dirname(__file__), "../../../Collect_metrics/metrics_witho/output")
+
+
+def normalize_query_db_pairs(config):
+    query_sets = config.get("query", []) if isinstance(config, dict) else []
+    databases = config.get("db", []) if isinstance(config, dict) else []
+    if isinstance(query_sets, str):
+        query_sets = [query_sets]
+    if isinstance(databases, str):
+        databases = [databases]
+    pairs = []
+    for query_set, database in zip(query_sets, databases):
+        if query_set and database:
+            pairs.append((query_set, database))
+    return pairs
+
+
+def metrics_file_path(query_set, database, llm=False):
+    suffix = "-llm" if llm else ""
+    return os.path.join(get_metrics_output_dir(), f"{query_set}-{database}-sql-metrics{suffix}.json")
+
+
 def read_sql_records(query_set, database):
     """Read SQL records from a JSON file."""
-    record_file = os.path.join(
-        "../../../Collect_metrics/metrics_witho/output",
-        f"{query_set}-{database}-sql-metrics.json",
-    )
+    records = []
+    record_file = metrics_file_path(query_set, database, llm=False)
+    if not os.path.exists(record_file):
+        raise FileNotFoundError(f"Metrics file not found: {record_file}")
     with open(record_file, "r") as f:
-        return json.load(f)
+        records.extend(json.load(f))
+
+    llm_record_file = metrics_file_path(query_set, database, llm=True)
+    if os.path.exists(llm_record_file):
+        with open(llm_record_file, "r") as f:
+            records.extend(json.load(f))
+    return records
 
 
 def find_k_nearest_neighbors(pool, virtual_query, k):
@@ -344,19 +381,28 @@ def find_k_distants_neighbors(pool, virtual_query, k):
     return ret[:k]
 
 
-def create_positive_pool(new_query_list):
+def create_positive_pool(config, new_query_list):
     sql_candidates = []
-    database_set = ["tpch500m","tpch1g","tpch5g","tpch9g","llm"]
-    query_sets = ["TPCH","TPCH","TPCH","TPCH","llm"]
-    for query_set, database in zip(query_sets, database_set):
+    for query_set, database in normalize_query_db_pairs(config):
         records = read_sql_records(query_set, database)
         for record in records:
+            # Skip malformed entries without core metrics.
+            if any(k not in record for k in ["query", "avg_cpu_time", "avg_scan_bytes", "avg_duration"]):
+                continue
+            head = record["query"].lstrip().upper()
+            if not (head.startswith("SELECT") or head.startswith("WITH") or head.startswith("EXPLAIN")):
+                continue
+            # Backward compatibility: some historical metric files may not include all operator keys.
+            for op in ["filter", "join", "agg", "sort"]:
+                record.setdefault(op, 0)
             if record["avg_cpu_time"] <0.1:
                 continue
+            query_text = record["query"]
+            record_database = query_text.rsplit("@", 1)[1] if "@" in query_text else database
             sql_candidates.append(
                 Query(
-                    database = (record["database"] if database=="llm" else database),
-                    text=record["query"],
+                    database=record_database,
+                    text=query_text,
                     cpu=record["avg_cpu_time"],
                     s_cpu=record["avg_cpu_time"],
                     scan=record["avg_scan_bytes"] / (1024**3),
@@ -379,8 +425,8 @@ def create_positive_pool(new_query_list):
     return sql_candidates
 
 
-def create_negative_pool(new_query_list):
-    return create_positive_pool(new_query_list)
+def create_negative_pool(config, new_query_list):
+    return create_positive_pool(config, new_query_list)
 
 
 ### Demo End ###
@@ -660,9 +706,8 @@ def record_metrics(host, databend_port, prometheus_port, query, wait_time, datab
     )
 
 
-def create_database_option():
-    database_vector = np.random.choice(["tpch500m", "tpch1g", "tpch5g","tpch9g"],p=[0.33,0.33,0.33,0.01])
-    return database_vector
+def create_database_option(databases):
+    return np.random.choice(databases)
 
 
 def create_database_guide_prompt(to_database):
@@ -850,10 +895,28 @@ def create_operator_vector_based_on_goal(filter_goal,join_goal,agg_goal,sort_goa
     return [new_filter_goal,new_join_goal,new_agg_goal,new_sort_goal]
 
 
-def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal,agg_goal,sort_goal,max_loop=5, output_num=20, output_path="../../../Collect_metrics/metrics_witho/output/llm-llm-sql-metrics.json", replay=3):
+def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal,agg_goal,sort_goal,max_loop=5, output_num=20, output_path=None, replay=3):
     print(cpu_total_goal,scan_total_goal)
+    pairs = normalize_query_db_pairs(config)
+    if not pairs:
+        print("LLM generation skipped: config['query']/config['db'] is empty.")
+        return 0
+
+    output_path_by_db = {}
+    for query_set, database in pairs:
+        llm_path = metrics_file_path(query_set, database, llm=True)
+        output_path_by_db.setdefault(database, llm_path)
+        os.makedirs(os.path.dirname(llm_path), exist_ok=True)
+
     generated_queries=[]
-    positive_pool=create_positive_pool(generated_queries)
+    positive_pool=create_positive_pool(config, generated_queries)
+    if not positive_pool:
+        print("LLM generation skipped: no candidate records available from configured query pools.")
+        return 0
+    available_databases = sorted({q.database for q in positive_pool if q.database})
+    if not available_databases:
+        print("LLM generation skipped: no database targets available in candidate pool.")
+        return 0
     # set goal
     total_cpu=0
     total_scan=0
@@ -899,10 +962,11 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
     # print("SCAN: ", query.scan)
     # print("Right CPU and SCAN: ", 1.87,328224916.0)
     total_out_num = output_num
+    touched_outputs = set()
     while output_num > 0:
         current_prompt = []
         output_num -= 1
-        this_database = create_database_option()
+        this_database = create_database_option(available_databases)
         # init query
         op_vector=create_operator_vector_based_on_goal(filter_goal,join_goal,agg_goal,sort_goal)
         target_query = Query(
@@ -932,8 +996,8 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
         # init the positive and negative examples
         positive_examples_num = 3
         negative_examples_num = 3
-        pool_positive = create_positive_pool(generated_queries)
-        pool_negative = create_negative_pool(generated_queries)
+        pool_positive = create_positive_pool(config, generated_queries)
+        pool_negative = create_negative_pool(config, generated_queries)
         hint_positive, p_records = create_positive_prompt_hint(
                 target_query, pool_positive, positive_examples_num
             )
@@ -947,7 +1011,7 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
         print(prompt_text)
         print("-----END PROMPT-------")
 
-        llm = Llm()
+        llm = Llm(model=resolve_llm_model(config))
         query_text = llm.query(prompt_text)
         current_prompt.append(prompt_text)
         current_prompt.append(query_text)
@@ -1012,7 +1076,9 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
                     print(f"|Sort|{current_query.s_sort}|{current_query.sort}|")
                     print("------------------")
             generated_queries.append(current_query)
-            current_query.save_query(output_path=output_path)
+            target_output_path = output_path or output_path_by_db.get(current_query.database) or next(iter(output_path_by_db.values()))
+            current_query.save_query(output_path=target_output_path)
+            touched_outputs.add(target_output_path)
         now_max_loop = max_loop
         while now_max_loop > 0:
             now_max_loop -= 1
@@ -1089,20 +1155,19 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
                         print(f"|Sort|{current_query.s_sort}|{current_query.sort}|")
                         print("------------------")
                 generated_queries.append(current_query)
-                current_query.save_query(output_path)
+                target_output_path = output_path or output_path_by_db.get(current_query.database) or next(iter(output_path_by_db.values()))
+                current_query.save_query(output_path=target_output_path)
+                touched_outputs.add(target_output_path)
     import pandas as pd
     import numpy as np
-#/Users/zsy/Documents/codespace/python/FlexBench_original/simulator/one_last_exp/metrics_witho/llm-llm2-sql-metrics.json
-    with open(output_path) as f:
-        data = pd.read_json(f)
-    # drop row if is_valid is 0
-    print(len(data))
-    data = data[data['is_valid'] == 1]
-    # 在query行 去重
-    data = data.drop_duplicates(subset='query')
-    print(len(data))
-    # save to the original file
-    data.to_json(output_path, orient='records')
+    for one_output in sorted(touched_outputs):
+        with open(one_output) as f:
+            data = pd.read_json(f)
+        print(len(data))
+        data = data[data['is_valid'] == 1]
+        data = data.drop_duplicates(subset='query')
+        print(len(data))
+        data.to_json(one_output, orient='records')
    
 
 def main():
@@ -1154,7 +1219,12 @@ def main():
         max_loop = parser.parse_args().max_loop
         current_prompt = []
         output_num -= 1
-        this_database = create_database_option()
+        pairs = normalize_query_db_pairs(config)
+        if not pairs:
+            print("No query/database pairs configured.")
+            return 0
+        available_databases = sorted({db for _, db in pairs})
+        this_database = create_database_option(available_databases)
         # init query
         workload_df = read_workload(config)
         cpu_goal, scan_goal, op_vector = create_perf_goal(
@@ -1189,8 +1259,8 @@ def main():
         negative_examples_num = 3
         if_positive = parser.parse_args().positive
         if_negative = parser.parse_args().negative
-        pool_positive = create_positive_pool(generated_queries)
-        pool_negative = create_negative_pool(generated_queries)
+        pool_positive = create_positive_pool(config, generated_queries)
+        pool_negative = create_negative_pool(config, generated_queries)
         if if_positive:
             hint_positive, p_records = create_positive_prompt_hint(
                 target_query, pool_positive, positive_examples_num
@@ -1206,7 +1276,7 @@ def main():
         print(prompt_text)
         print("-----END PROMPT-------")
 
-        llm = Llm()
+        llm = Llm(model=resolve_llm_model(config))
         query_text = llm.query(prompt_text)
         current_prompt.append(prompt_text)
         current_prompt.append(query_text)

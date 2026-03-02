@@ -8,6 +8,13 @@ import pulp
 from LLM_tools.src.llm_gen import generate_query
 import time
 
+def resolve_llm_times(config):
+    value = config.get("llm_times", os.getenv("LLM_TIMES", 0))
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return 0
+
 def get_time():
     # get local time
     timestamp = time.time()
@@ -16,9 +23,14 @@ def get_time():
 
 def read_sql_records(query_set, database):
     """ Read SQL records from a JSON file. """
-    record_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
-    with open(record_file, "r") as f:
+    base_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
+    llm_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics-llm.json")
+
+    with open(base_file, "r") as f:
         records = json.load(f)
+    if os.path.exists(llm_file):
+        with open(llm_file, "r") as f:
+            records.extend(json.load(f))
 
     normalized = []
     for record in records:
@@ -201,7 +213,7 @@ def generate_workload(config,is_test):
                 print("-" * os.get_terminal_size().columns)
             except OSError:
                 print("-" * 80)  # Fallback for non-terminal environments
-            times=0
+            times = resolve_llm_times(config)
             # llm code need to be updated
             while times > 0 and total_MAPE > 0.1:
                 times-=1

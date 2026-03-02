@@ -19,6 +19,16 @@ Before running `run_pbench.py`, make sure:
 3. Databend + Prometheus are running and reachable from config host/ports.
    - In this repo's `docker-compose.yml`, Prometheus is exposed on host port `9091`.
 
+### Optional LLM prerequisites
+
+If you want to enable LLM-assisted query generation (additional pass in ILP):
+
+1. Put at least one API key in:
+   - `src/PBench-tool/LLM_tools/input/keys.txt`
+2. Ensure base metrics exist for the configured query pools:
+   - `src/Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json`
+3. (Optional) Configure OpenAI-compatible endpoint/model via env or config (see below).
+
 ## Collect Query Metrics First
 
 Example (from repo root):
@@ -56,6 +66,70 @@ python run_pbench.py --config-dir configs/redset
 ```bash
 python run_pbench.py --config-dir configs/snowset
 ```
+
+## LLM Pass Controls
+
+By default, LLM generation is disabled.
+
+- Default behavior:
+  - `llm_times = 0` (no LLM pass)
+- Enable LLM pass:
+  - set `llm_times` in YAML config, or
+  - set `LLM_TIMES` env var
+
+Resolution for `llm_times`:
+- `config["llm_times"]` takes precedence
+- fallback: `LLM_TIMES`
+- fallback default: `0`
+
+### Run without LLM pass (default)
+
+No change required. Equivalent explicit config:
+
+```yaml
+llm_times: 0
+```
+
+### Run with LLM pass
+
+Example YAML snippet:
+
+```yaml
+llm_times: 1
+llm_model: gpt-4o
+```
+
+Or via env:
+
+```bash
+export LLM_TIMES=1
+export OPENAI_MODEL=gpt-4o
+```
+
+### Model and endpoint selection
+
+Model resolution:
+
+- `config["llm_model"]` (if present)
+- else `OPENAI_MODEL` env var
+- else default `gpt-4o`
+
+OpenAI-compatible endpoint:
+
+```bash
+export OPENAI_BASE_URL="https://your-openai-compatible-endpoint/v1"
+```
+
+## LLM Metrics Files
+
+When LLM pass is enabled, generated query metrics are written to separate files:
+
+- `src/Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics-llm.json`
+
+The synthesis pipeline automatically reads both:
+
+- base metrics: `...-sql-metrics.json`
+- LLM metrics: `...-sql-metrics-llm.json` (if present)
 
 ## Config Organization
 

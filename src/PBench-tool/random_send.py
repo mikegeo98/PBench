@@ -18,9 +18,14 @@ join_error = []
 
 def read_sql_records(query_set, database):
     """ Read SQL records from a JSON file. """
-    record_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
-    with open(record_file, "r") as f:
+    base_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics.json")
+    llm_file = os.path.join(f"../Collect_metrics/metrics_witho/output/{query_set}-{database}-sql-metrics-llm.json")
+
+    with open(base_file, "r") as f:
         records = json.load(f)
+    if os.path.exists(llm_file):
+        with open(llm_file, "r") as f:
+            records.extend(json.load(f))
     normalized = []
     for record in records:
         if any(k not in record for k in ["query", "avg_cpu_time", "avg_scan_bytes", "avg_duration"]):
