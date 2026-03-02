@@ -795,12 +795,21 @@ def try_to_restartdb_server():
 
 
 ### Replay End ###
-def test_connection():
-    config = load_config()
+def test_connection(config=None):
+    if config is None:
+        config = load_config()
+    db_list = config.get("db", [])
+    if isinstance(db_list, str):
+        db_list = [db_list]
+    db_list = [db for db in db_list if db]
+    if not db_list:
+        print("CONNECTION TEST FAILED: config['db'] is not set")
+        return 0
+    test_db = db_list[0]
     print("Current Time: ", get_time())
     test_query = Query(
-        database="tpch500m",
-        text="SELECT 1 FROM nation",
+        database=test_db,
+        text="SELECT 1",
         cpu=0,
         s_cpu=0,
         scan=0,
@@ -987,7 +996,7 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
                     print("Invalid query to execute, please try again.")
                     print(current_query.text)
                     print("------------------")
-                    if not test_connection():
+                    if not test_connection(config):
                         return 0
                 else:
                     print("------------------")
@@ -1062,7 +1071,7 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
                         print("Invalid query to execute, please try again.")
                         print(current_query.text)
                         print("------------------")
-                        if not test_connection():
+                        if not test_connection(config):
                             return 0
                     else:
                         print("------------------")
@@ -1135,7 +1144,7 @@ def main():
     config = load_config()
     max_loop = parser.parse_args().max_loop
     # Test Connection 1
-    if not test_connection():
+    if not test_connection(config):
         return 0
     else:
         print("TEST SUCCESS")
@@ -1246,7 +1255,7 @@ def main():
                     print("Invalid query to execute, please try again.")
                     print(current_query.text)
                     print("------------------")
-                    if not test_connection():
+                    if not test_connection(config):
                         return 0
                 else:
                     print("------------------")
@@ -1320,7 +1329,7 @@ def main():
                         print("Invalid query to execute, please try again.")
                         print(current_query.text)
                         print("------------------")
-                        if not test_connection():
+                        if not test_connection(config):
                             return 0
                     else:
                         print("------------------")
