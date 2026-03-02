@@ -448,6 +448,17 @@ class Llm:
         self.client = None
         self.print_key = print_key
 
+    def _system_prompt(self, database=None, schema_tables=None):
+        prompt = (
+            "You are a helpful assistant for SQL generation. "
+            "Return exactly one SQL query only, without markdown or explanations."
+        )
+        if database:
+            prompt += f" The SQL must run on Databend database `{database}`."
+        if schema_tables:
+            prompt += f" Use only these tables: {', '.join(schema_tables)}."
+        return prompt
+
     def get_key(self):
         with open(self.key_file, "r") as f:
             keys = [x.strip() for x in f.readlines()]
@@ -456,9 +467,9 @@ class Llm:
         self.cur_key = cur_key
         return cur_key
 
-    def query(self, ask, get_lower=False):
+    def query(self, ask, get_lower=False, database=None, schema_tables=None):
         try:
-            return self._query(ask, get_lower)
+            return self._query(ask, get_lower, database=database, schema_tables=schema_tables)
         except Exception as e:
             print(f"Error: {e}")
             if "maximum context length" in str(e):
@@ -469,11 +480,11 @@ class Llm:
                 print("!!!!!!!!!!!!!!!! Please change the key file !!!!!!!!!!!!!!!!")
                 time.sleep(60 * 1)
             # time.sleep(2)
-            return self.query(ask, get_lower)
+            return self.query(ask, get_lower, database=database, schema_tables=schema_tables)
 
-    def query_concate(self, ask_list, get_lower=False):
+    def query_concate(self, ask_list, get_lower=False, database=None, schema_tables=None):
         try:
-            return self._query_concate(ask_list, get_lower)
+            return self._query_concate(ask_list, get_lower, database=database, schema_tables=schema_tables)
         except Exception as e:
             print(f"Error: {e}")
             if "maximum context length" in str(e):
@@ -484,9 +495,9 @@ class Llm:
                 print("!!!!!!!!!!!!!!!! Please change the key file !!!!!!!!!!!!!!!!")
                 time.sleep(60 * 1)
             # time.sleep(2)
-            return self.query_concate(ask_list, get_lower)
+            return self.query_concate(ask_list, get_lower, database=database, schema_tables=schema_tables)
 
-    def _query_concate(self, ask_list, get_lower=False):
+    def _query_concate(self, ask_list, get_lower=False, database=None, schema_tables=None):
         key = self.get_key()
         if self.print_key:
             print(f"cur_key: {key}")
@@ -496,7 +507,7 @@ class Llm:
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful assistant. You can only generate a SQL that can be executed on TPC-H database. Except for the query itself, DO NOT generate other words",
+                "content": self._system_prompt(database=database, schema_tables=schema_tables),
             }
         ]
         turn = 0
@@ -519,7 +530,7 @@ class Llm:
             ans = ans.strip().replace("\n", " ").replace("  ", " ")
         return ans
 
-    def _query(self, ask, post_process=False, get_lower=False):
+    def _query(self, ask, post_process=False, get_lower=False, database=None, schema_tables=None):
         key = self.get_key()
         if self.print_key:
             print(f"cur_key: {key}")
@@ -531,7 +542,7 @@ class Llm:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful assistant. You can only generate a SQL that can be executed on TPC-H database. Except for the query itself, DO NOT generate other words",
+                    "content": self._system_prompt(database=database, schema_tables=schema_tables),
                 },
                 {"role": "user", "content": ask},
             ],
@@ -724,6 +735,25 @@ def create_database_guide_prompt(to_database):
     for database in schemas:
         if database["database"] == to_database:
             return f"You are required to generate a SQL query on {to_database} database. the database schema and the table size of each table is {json.dumps(database['tables'])}. The query should have the following properties:"
+
+
+def get_database_table_names(to_database):
+    with open(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "input",
+            "table_schema",
+            "table_meta.json",
+        )
+    ) as f:
+        schemas: list = json.load(f)
+    for database in schemas:
+        if database["database"] == to_database:
+            tables = database.get("tables", {})
+            if isinstance(tables, dict):
+                return sorted(tables.keys())
+    return []
 
 
 def create_perf_goal(workload_df, is_perf=False, is_op=False, count_limit=50):
@@ -967,6 +997,7 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
         current_prompt = []
         output_num -= 1
         this_database = create_database_option(available_databases)
+        schema_tables = get_database_table_names(this_database)
         # init query
         op_vector=create_operator_vector_based_on_goal(filter_goal,join_goal,agg_goal,sort_goal)
         target_query = Query(
@@ -1012,7 +1043,7 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
         print("-----END PROMPT-------")
 
         llm = Llm(model=resolve_llm_model(config))
-        query_text = llm.query(prompt_text)
+        query_text = llm.query(prompt_text, database=this_database, schema_tables=schema_tables)
         current_prompt.append(prompt_text)
         current_prompt.append(query_text)
         current_query = Query(
@@ -1090,7 +1121,7 @@ def generate_query(config, cpu_total_goal, scan_total_goal,filter_goal,join_goal
             print(new_prompt)
             print("----END PROMPT------")
             current_prompt.append(new_prompt)
-            query_text = llm.query_concate(current_prompt)
+            query_text = llm.query_concate(current_prompt, database=this_database, schema_tables=schema_tables)
             current_prompt.append(query_text)
             current_query = Query(
                 database=this_database,
@@ -1225,6 +1256,7 @@ def main():
             return 0
         available_databases = sorted({db for _, db in pairs})
         this_database = create_database_option(available_databases)
+        schema_tables = get_database_table_names(this_database)
         # init query
         workload_df = read_workload(config)
         cpu_goal, scan_goal, op_vector = create_perf_goal(
@@ -1277,7 +1309,7 @@ def main():
         print("-----END PROMPT-------")
 
         llm = Llm(model=resolve_llm_model(config))
-        query_text = llm.query(prompt_text)
+        query_text = llm.query(prompt_text, database=this_database, schema_tables=schema_tables)
         current_prompt.append(prompt_text)
         current_prompt.append(query_text)
         current_query = Query(
@@ -1352,7 +1384,7 @@ def main():
             print(new_prompt)
             print("----END PROMPT------")
             current_prompt.append(new_prompt)
-            query_text = llm.query_concate(current_prompt)
+            query_text = llm.query_concate(current_prompt, database=this_database, schema_tables=schema_tables)
             current_prompt.append(query_text)
             current_query = Query(
                 database=this_database,
