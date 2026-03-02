@@ -4,7 +4,6 @@ import os
 import sys
 import subprocess
 import time
-from func_timeout import func_set_timeout
 import func_timeout
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
@@ -200,8 +199,13 @@ class Query:
         replay_log = ""
         if not self.is_valid:
             return 0
+        timeout_secs = resolve_llm_query_timeout_secs(config)
         operators = record_operator(
-            config["host"], config["databend_port"], self.text, self.database
+            config["host"],
+            config["databend_port"],
+            self.text,
+            self.database,
+            timeout_secs=timeout_secs,
         )
         if operators["filter"] == -1:
             self.is_valid = 0
@@ -218,6 +222,7 @@ class Query:
                 self.text,
                 config["wait"],
                 database=self.database,
+                timeout_secs=timeout_secs,
             )
             if cputime < 0:
                 self.is_valid = 0
@@ -326,6 +331,21 @@ def resolve_llm_model(config=None):
         if model:
             return model
     return os.getenv("OPENAI_MODEL", "gpt-4o")
+
+
+def resolve_llm_query_timeout_secs(config=None):
+    if isinstance(config, dict):
+        value = config.get("llm_query_timeout_secs")
+        if value is not None:
+            try:
+                return max(int(value), 1)
+            except (TypeError, ValueError):
+                pass
+    env_value = os.getenv("LLM_QUERY_TIMEOUT_SECS", 120)
+    try:
+        return max(int(env_value), 1)
+    except (TypeError, ValueError):
+        return 120
 
 
 def get_metrics_output_dir():
@@ -563,8 +583,7 @@ class Llm:
 ### Replay Begin ###
 
 
-@func_set_timeout(80)
-def execute_query(host, port, query, database):
+def _execute_query_impl(host, port, query, database):
     # if there are more than one query in the file, only execute them one by one
     query = query.split(";")
     # make sure the last query is not empty
@@ -581,7 +600,13 @@ def execute_query(host, port, query, database):
     return ret
 
 
-def record_operator(host, databend_port, query, database):
+def execute_query(host, port, query, database, timeout_secs=120):
+    return func_timeout.func_timeout(
+        timeout_secs, _execute_query_impl, args=(host, port, query, database)
+    )
+
+
+def record_operator(host, databend_port, query, database, timeout_secs=120):
     dic = {
         "filter": ["Filter"],
         "join": ["HashJoin"],
@@ -618,7 +643,9 @@ def record_operator(host, databend_port, query, database):
     #         print(f"Error: {e}")
     #         return {"filter": -1, "join": -1, "agg": -1, "sort": -1}
     try:
-        plan = execute_query(host, databend_port, query, database)
+        plan = execute_query(
+            host, databend_port, query, database, timeout_secs=timeout_secs
+        )
     except func_timeout.exceptions.FunctionTimedOut:
         print(f"Error: ")
         return {"filter": -1, "join": -1, "agg": -1, "sort": -1}
@@ -638,7 +665,15 @@ def record_operator(host, databend_port, query, database):
     return operator_cnt
 
 
-def record_metrics(host, databend_port, prometheus_port, query, wait_time, database):
+def record_metrics(
+    host,
+    databend_port,
+    prometheus_port,
+    query,
+    wait_time,
+    database,
+    timeout_secs=120,
+):
     """Record and print metrics related to the executed query."""
     try:
         start_time = get_time()
@@ -664,7 +699,9 @@ def record_metrics(host, databend_port, prometheus_port, query, wait_time, datab
     start_cputime = prometheus_queries["cpu_new"](host, prometheus_port, start_time)
     start_scan = prometheus_queries["scan"](host, prometheus_port, start_time)
     try:
-        execute_query(host, databend_port, query, database)
+        execute_query(
+            host, databend_port, query, database, timeout_secs=timeout_secs
+        )
     except Exception as e:
         print(f"Error: {e}")
         return (

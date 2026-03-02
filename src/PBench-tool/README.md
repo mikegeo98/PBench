@@ -97,6 +97,7 @@ Example YAML snippet:
 ```yaml
 llm_times: 1
 llm_model: gpt-4o
+llm_query_timeout_secs: 120
 ```
 
 Or via env:
@@ -104,6 +105,7 @@ Or via env:
 ```bash
 export LLM_TIMES=1
 export OPENAI_MODEL=gpt-4o
+export LLM_QUERY_TIMEOUT_SECS=120
 ```
 
 ### Model and endpoint selection
@@ -113,6 +115,12 @@ Model resolution:
 - `config["llm_model"]` (if present)
 - else `OPENAI_MODEL` env var
 - else default `gpt-4o`
+
+LLM query timeout resolution (used for `EXPLAIN ANALYZE` replay in LLM generation):
+
+- `config["llm_query_timeout_secs"]` (if present)
+- else `LLM_QUERY_TIMEOUT_SECS` env var
+- else default `120`
 
 OpenAI-compatible endpoint:
 
