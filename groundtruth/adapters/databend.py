@@ -9,7 +9,7 @@ from typing import Any
 import requests
 from databend_driver import BlockingDatabendClient
 
-from src.utils.databend_exec import build_databend_dsn
+from src.utils.databend_exec import build_databend_dsn, execute_databend_query
 from src.utils.prometheus import prometheus_queries
 
 
@@ -73,13 +73,17 @@ class DatabendAdapter:
     def _explain_plan_text(
         self, database: str, query_text: str, settings: dict[str, Any] | None = None
     ) -> str:
-        rows = self._query_rows(database, f"EXPLAIN {query_text.strip()}", settings=settings)
-        out: list[str] = []
-        for row in rows:
-            for v in row.values():
-                if v is not None:
-                    out.append(str(v))
-        return "\n".join(out)
+        # Reuse the same explain execution path already used in existing codepaths.
+        results = execute_databend_query(
+            host=self.host,
+            port=self.port,
+            database=database,
+            query=query_text,
+            settings=settings,
+            secure=self.secure,
+            explain_mode="EXPLAIN ANALYZE",
+        )
+        return str(results)
 
     @staticmethod
     def _operator_stats_from_plan(plan_text: str) -> dict[str, int]:
