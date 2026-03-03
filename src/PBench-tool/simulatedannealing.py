@@ -128,7 +128,8 @@ class Problem(Annealer):
         
         for i, query in enumerate(self.queries):
             interval = self.interval
-            cpu_duration = new_durations[i]
+            # Guard against zero/invalid reallocated durations to avoid division by zero.
+            cpu_duration = max(float(new_durations[i]), 1e-9)
             cpu_per_second = query["info"]["avg_cpu_time"] / cpu_duration
             query_lasted = int(cpu_duration // interval + 1)
             workload_scanbytes[self.state[i] + query_lasted - 1] += query["info"]["avg_scan_bytes"]

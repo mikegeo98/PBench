@@ -76,6 +76,29 @@ def cosine_similarity(vec1, vec2):
     else:
         return dot_product / (norm_vec1 * norm_vec2)
 
+
+def unique_nonempty(parts):
+    seen = set()
+    ret = []
+    for part in parts:
+        if not part:
+            continue
+        text = str(part).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        ret.append(text)
+    return ret
+
+
+def normalize_llm_answer(ans, get_lower=False):
+    if ans is None:
+        raise ValueError("E(GPT): Empty response content.")
+    text = str(ans).strip().replace("\n", " ").replace("  ", " ")
+    if get_lower:
+        text = text.lower()
+    return text
+
 def read_workload(config):
     with open(config["workload_path"], "r") as f:
         workload_df = pd.read_csv(f)
@@ -163,7 +186,14 @@ class Query:
         return "\n".join(prompt)
 
     def refresh_syntax(self):
+        if not isinstance(self.text, str):
+            self.is_valid = 0
+            self.text = ""
+            return
         self.text = self.text.replace("```sql", "").replace("```", "")
+        if not self.text.strip():
+            self.is_valid = 0
+            return
         if self.text.find("SELECT") == -1:
             self.is_valid = 0
         # if no ";" in the query, add one
@@ -178,12 +208,14 @@ class Query:
         if not self.is_valid:
             return 0
         timeout_secs = resolve_llm_query_timeout_secs(config)
+        http_result_timeout_secs = resolve_llm_result_timeout_secs(config)
         operators = record_operator(
             config["host"],
             config["databend_port"],
             self.text,
             self.database,
             timeout_secs=timeout_secs,
+            http_result_timeout_secs=http_result_timeout_secs,
         )
         if operators["agg"] == -1:
             self.is_valid = 0
@@ -201,6 +233,7 @@ class Query:
                 config["wait"],
                 database=self.database,
                 timeout_secs=timeout_secs,
+                http_result_timeout_secs=http_result_timeout_secs,
             )
             if cputime < 0:
                 self.is_valid = 0
@@ -312,6 +345,21 @@ def resolve_llm_query_timeout_secs(config=None):
         return 120
 
 
+def resolve_llm_result_timeout_secs(config=None):
+    if isinstance(config, dict):
+        value = config.get("llm_result_timeout_secs")
+        if value is not None:
+            try:
+                return max(int(value), 1)
+            except (TypeError, ValueError):
+                pass
+    env_value = os.getenv("LLM_RESULT_TIMEOUT_SECS", 120)
+    try:
+        return max(int(env_value), 1)
+    except (TypeError, ValueError):
+        return 120
+
+
 def read_sql_records(query_set, database):
     """Read SQL records from a JSON file."""
     record_file = os.path.join(
@@ -396,11 +444,16 @@ class Llm:
         self.cur_key = cur_key
         return cur_key
 
-    def query(self, ask, get_lower=False):
+    def query(self, ask, get_lower=False, retry=0):
         try:
             return self._query(ask, get_lower)
         except Exception as e:
             print(f"Error: {e}")
+            if "Empty response content" in str(e):
+                if retry >= 2:
+                    return ""
+                time.sleep(1)
+                return self.query(ask, get_lower, retry=retry + 1)
             if "maximum context length" in str(e):
                 raise ValueError(
                     f"E(GPT): Maximum context length exceeded. Please reduce the input length."
@@ -409,13 +462,18 @@ class Llm:
                 print("!!!!!!!!!!!!!!!! Please change the key file !!!!!!!!!!!!!!!!")
                 time.sleep(60 * 1)
             # time.sleep(2)
-            return self.query(ask, get_lower)
+            return self.query(ask, get_lower, retry=retry + 1)
 
-    def query_concate(self, ask_list, get_lower=False):
+    def query_concate(self, ask_list, get_lower=False, retry=0):
         try:
             return self._query_concate(ask_list, get_lower)
         except Exception as e:
             print(f"Error: {e}")
+            if "Empty response content" in str(e):
+                if retry >= 2:
+                    return ""
+                time.sleep(1)
+                return self.query_concate(ask_list, get_lower, retry=retry + 1)
             if "maximum context length" in str(e):
                 raise ValueError(
                     f"E(GPT): Maximum context length exceeded. Please reduce the input length."
@@ -424,7 +482,7 @@ class Llm:
                 print("!!!!!!!!!!!!!!!! Please change the key file !!!!!!!!!!!!!!!!")
                 time.sleep(60 * 1)
             # time.sleep(2)
-            return self.query_concate(ask_list, get_lower)
+            return self.query_concate(ask_list, get_lower, retry=retry + 1)
 
     def _query_concate(self, ask_list, get_lower=False):
         key = self.get_key()
@@ -453,11 +511,7 @@ class Llm:
             max_tokens=2048,
         )
         ans = completion.choices[0].message.content
-        if get_lower:
-            ans = ans.lower().strip().replace("\n", " ").replace("  ", " ")
-        else:
-            ans = ans.strip().replace("\n", " ").replace("  ", " ")
-        return ans
+        return normalize_llm_answer(ans, get_lower=get_lower)
 
     def _query(self, ask, post_process=False, get_lower=False):
         key = self.get_key()
@@ -480,18 +534,15 @@ class Llm:
         )
         ans = completion.choices[0].message.content
         if post_process:
-            if get_lower:
-                ans = ans.lower().strip().replace("\n", " ").replace("  ", " ")
-            else:
-                ans = ans.strip().replace("\n", " ").replace("  ", " ")
-        return ans
+            return normalize_llm_answer(ans, get_lower=get_lower)
+        return normalize_llm_answer(ans, get_lower=False)
 
 
 ### OpenAI End ###
 
 ### Replay Begin ###
 
-def _execute_query_impl(host, port, query, database):
+def _execute_query_impl(host, port, query, database, http_result_timeout_secs=120):
     # if there are more than one query in the file, only execute them one by one
     query = query.split(";")
     # make sure the last query is not empty
@@ -499,22 +550,48 @@ def _execute_query_impl(host, port, query, database):
         query = query[:-1]
     # add the last semicolon to each query
     query = [q + ";" for q in query]
+    llm_session_settings = {
+        "http_handler_result_timeout_secs": str(http_result_timeout_secs),
+        # Hard limits to prevent Databend OOM during LLM-driven replay.
+        "max_query_memory_usage": "68719476736",  # 64 GiB
+        "max_memory_usage": "68719476736",        # legacy compatibility
+        "query_out_of_memory_behavior": "spilling",
+        "join_spilling_memory_ratio": "40",
+        "aggregate_spilling_memory_ratio": "40",
+        "sort_spilling_memory_ratio": "40",
+    }
     ret = []
     for q in query:
-        if not q.startswith("Explain Analyze") and not q.startswith("EXPLAIN ANALYZE"):
-            q = "Explain Analyze " + q
+        if not q.startswith("Explain") and not q.startswith("EXPLAIN"):
+            q = "Explain " + q
         client = Client(f"root:@{host}", port=port, secure=False, database=database)
-        ret.append(client.execute(q))
+        ret.append(
+            client.execute(
+                q,
+                settings=llm_session_settings,
+            )
+        )
     return ret
 
 
-def execute_query(host, port, query, database, timeout_secs=120):
+def execute_query(
+    host, port, query, database, timeout_secs=120, http_result_timeout_secs=120
+):
     return func_timeout.func_timeout(
-        timeout_secs, _execute_query_impl, args=(host, port, query, database)
+        timeout_secs,
+        _execute_query_impl,
+        args=(host, port, query, database, http_result_timeout_secs),
     )
 
 
-def record_operator(host, databend_port, query, database, timeout_secs=120):
+def record_operator(
+    host,
+    databend_port,
+    query,
+    database,
+    timeout_secs=120,
+    http_result_timeout_secs=120,
+):
     dic = {
         "filter": ["Filter"],
         "join": ["HashJoin", "MergeJoin"],
@@ -524,7 +601,12 @@ def record_operator(host, databend_port, query, database, timeout_secs=120):
     """Record the operators used in the query."""
     try:
         plan = execute_query(
-            host, databend_port, query, database, timeout_secs=timeout_secs
+            host,
+            databend_port,
+            query,
+            database,
+            timeout_secs=timeout_secs,
+            http_result_timeout_secs=http_result_timeout_secs,
         )
     except func_timeout.exceptions.FunctionTimedOut:
         print(f"Error: ")
@@ -550,6 +632,7 @@ def record_metrics(
     wait_time,
     database,
     timeout_secs=120,
+    http_result_timeout_secs=120,
 ):
     """Record and print metrics related to the executed query."""
     start_time = get_time()
@@ -560,7 +643,12 @@ def record_metrics(
     start_scan = prometheus_queries["scan"](host, prometheus_port, start_time)
     try:
         execute_query(
-            host, databend_port, query, database, timeout_secs=timeout_secs
+            host,
+            databend_port,
+            query,
+            database,
+            timeout_secs=timeout_secs,
+            http_result_timeout_secs=http_result_timeout_secs,
         )
     except Exception as e:
         print(f"Error: {e}")
@@ -576,7 +664,7 @@ def record_metrics(
     end_cputime = prometheus_queries["cpu_new"](host, prometheus_port, end_time)
     end_scan = prometheus_queries["scan"](host, prometheus_port, end_time)
     if (
-        end_scan - start_scan < 1
+        end_scan - start_scan < 0
         or end_cputime - start_cputime < 0
         or end_time - start_time < 0
     ):
@@ -826,7 +914,7 @@ def generate_query(config, cpu_total_goal, scan_total_goal,join_goal, agg_goal,m
                 target_query, pool_negative, negative_examples_num
             )
         prompt.append(hint_negative)
-        prompt_text = "\n".join(prompt)
+        prompt_text = "\n".join(unique_nonempty(prompt))
         print("--------PROMPT--------")
         print(prompt_text)
         print("-----END PROMPT-------")
@@ -1063,7 +1151,7 @@ def main():
                 target_query, pool_negative, negative_examples_num
             )
             prompt.append(hint_negative)
-        prompt_text = "\n".join(prompt)
+        prompt_text = "\n".join(unique_nonempty(prompt))
         print("--------PROMPT--------")
         print(prompt_text)
         print("-----END PROMPT-------")

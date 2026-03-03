@@ -15,3 +15,5 @@ db:
 - imdb
 op_scale: 10
 initial_count: 10
+
+llm_result_timeout_secs: 300

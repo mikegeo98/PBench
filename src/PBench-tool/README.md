@@ -98,6 +98,7 @@ Example YAML snippet:
 llm_times: 1
 llm_model: gpt-4o
 llm_query_timeout_secs: 120
+llm_result_timeout_secs: 120
 ```
 
 Or via env:
@@ -106,6 +107,7 @@ Or via env:
 export LLM_TIMES=1
 export OPENAI_MODEL=gpt-4o
 export LLM_QUERY_TIMEOUT_SECS=120
+export LLM_RESULT_TIMEOUT_SECS=120
 ```
 
 ### Model and endpoint selection
@@ -121,6 +123,14 @@ LLM query timeout resolution (used for `EXPLAIN ANALYZE` replay in LLM generatio
 - `config["llm_query_timeout_secs"]` (if present)
 - else `LLM_QUERY_TIMEOUT_SECS` env var
 - else default `120`
+
+LLM Databend HTTP result timeout resolution:
+
+- `config["llm_result_timeout_secs"]` (if present)
+- else `LLM_RESULT_TIMEOUT_SECS` env var
+- else default `120`
+
+This value is passed as Databend session setting `http_handler_result_timeout_secs`.
 
 OpenAI-compatible endpoint:
 
