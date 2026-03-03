@@ -20,8 +20,7 @@ class DatabendAdapter:
         self._query_log_shape: dict[str, str] | None = None
 
     def _connect(self, database: str, settings: dict[str, Any] | None = None):
-        # Some Databend builds reject unknown DSN/session variables at login time.
-        # Retry without optional settings if that happens.
+        # Keep this aligned with src/utils/databend_exec.py behavior.
         dsn = build_databend_dsn(
             host=self.host,
             port=self.port,
@@ -29,24 +28,26 @@ class DatabendAdapter:
             settings=settings,
             secure=self.secure,
         )
-        try:
-            return BlockingDatabendClient(dsn).get_conn()
-        except Exception as exc:
-            if settings and "Unknown variable" in str(exc):
-                fallback_dsn = build_databend_dsn(
-                    host=self.host,
-                    port=self.port,
-                    database=database,
-                    settings=None,
-                    secure=self.secure,
-                )
-                return BlockingDatabendClient(fallback_dsn).get_conn()
-            raise
+        return BlockingDatabendClient(dsn).get_conn()
 
     def _query_rows(self, database: str, sql: str, settings: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         conn = self._connect(database, settings=settings)
         try:
             return [dict(r) for r in conn.query_iter(sql)]
+        finally:
+            conn.close()
+
+    def _execute_sql(self, database: str, sql: str, settings: dict[str, Any] | None = None) -> None:
+        """Execute SQL similarly to src/utils/databend_exec.execute_databend_sql."""
+        conn = self._connect(database, settings=settings)
+        try:
+            try:
+                _ = [tuple(r.values()) for r in conn.query_iter(sql)]
+            except Exception as query_error:
+                try:
+                    conn.exec(sql)
+                except Exception:
+                    raise query_error
         finally:
             conn.close()
 
@@ -163,14 +164,14 @@ class DatabendAdapter:
         error = None
         start_wall = time.time()
         end_wall = None
-        conn = self._connect(database, settings={"max_execution_time": timeout_s})
+        # Match llm_gen/databend_exec: use http_handler_result_timeout_secs, not max_execution_time.
+        session_settings = {"http_handler_result_timeout_secs": str(timeout_s)}
         try:
-            _ = [tuple(r.values()) for r in conn.query_iter(q)]
+            self._execute_sql(database, q, settings=session_settings)
         except Exception as exc:
             status = "error"
             error = str(exc)
         finally:
-            conn.close()
             end_wall = time.time()
 
         log_row = self._lookup_query_log(database, client_request_id)
