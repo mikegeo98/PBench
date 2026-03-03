@@ -24,18 +24,14 @@ class DatabendAdapter:
         prometheus_host: str | None = None,
         prometheus_port: int | None = None,
         prometheus_scrape_wait_s: float = 2.0,
-        enable_system_query_log_lookup: bool = False,
     ):
         self.host = host
         self.port = int(port)
         self.default_database = default_database
         self.secure = secure
-        self._query_log_shape: dict[str, str] | None = None
         self.prometheus_host = prometheus_host
         self.prometheus_port = int(prometheus_port) if prometheus_port is not None else None
         self.prometheus_scrape_wait_s = float(prometheus_scrape_wait_s)
-        self.enable_system_query_log_lookup = bool(enable_system_query_log_lookup)
-        self._query_log_checked = False
 
     @property
     def prometheus_enabled(self) -> bool:
@@ -56,20 +52,6 @@ class DatabendAdapter:
         conn = self._connect(database, settings=settings)
         try:
             return [dict(r) for r in conn.query_iter(sql)]
-        finally:
-            conn.close()
-
-    def _execute_sql(self, database: str, sql: str, settings: dict[str, Any] | None = None) -> None:
-        """Execute SQL similarly to src/utils/databend_exec.execute_databend_sql."""
-        conn = self._connect(database, settings=settings)
-        try:
-            try:
-                _ = [tuple(r.values()) for r in conn.query_iter(sql)]
-            except Exception as query_error:
-                try:
-                    conn.exec(sql)
-                except Exception:
-                    raise query_error
         finally:
             conn.close()
 
@@ -185,136 +167,6 @@ class DatabendAdapter:
             pass
         return "unknown"
 
-    def _discover_query_log(self, database: str) -> dict[str, str] | None:
-        if not self.enable_system_query_log_lookup:
-            return None
-        if self._query_log_checked:
-            return self._query_log_shape
-
-        candidates = ["query_log", "query_history"]
-        table = None
-        try:
-            tbl_rows = self._query_rows(database, "SHOW TABLES FROM system")
-            names = {str(next(iter(r.values()))).lower() for r in tbl_rows if r}
-            for c in candidates:
-                if c in names:
-                    table = c
-                    break
-        except Exception:
-            table = None
-
-        if not table:
-            self._query_log_checked = True
-            self._query_log_shape = None
-            return None
-
-        try:
-            desc_rows = self._query_rows(database, f"DESCRIBE system.{table}")
-        except Exception:
-            self._query_log_checked = True
-            self._query_log_shape = None
-            return None
-
-        cols = {str(r.get("Field") or r.get("field") or "").lower(): str(r.get("Field") or r.get("field") or "") for r in desc_rows}
-
-        def pick(*options: str) -> str | None:
-            for o in options:
-                if o.lower() in cols:
-                    return cols[o.lower()]
-            return None
-
-        shape = {
-            "table": table,
-            "query_id": pick("query_id", "id") or "query_id",
-            "query_text": pick("query", "query_text", "sql") or "query",
-            "start": pick("query_start_time", "start_time", "event_time", "created_time") or "query_start_time",
-            "end": pick("query_finish_time", "finish_time", "end_time") or "query_finish_time",
-            "duration_ms": pick("query_duration_ms", "duration_ms") or "query_duration_ms",
-            "scan_bytes": pick("scan_bytes", "read_bytes") or "scan_bytes",
-            "result_rows": pick("result_rows", "written_rows", "rows") or "result_rows",
-            "cpu_ms": pick("cpu_time_ms", "cpu_ms") or "cpu_time_ms",
-            "memory_bytes": pick("memory_usage", "memory_bytes", "memory_used") or "memory_usage",
-            "spilled_bytes": pick("spilled_bytes", "spill_bytes") or "spilled_bytes",
-            "state": pick("state", "status") or "state",
-        }
-        self._query_log_checked = True
-        self._query_log_shape = shape
-        return shape
-
-    @staticmethod
-    def _safe_iso(v: Any) -> str | None:
-        if v is None:
-            return None
-        if isinstance(v, datetime):
-            if v.tzinfo is None:
-                v = v.replace(tzinfo=timezone.utc)
-            return v.astimezone(timezone.utc).isoformat()
-        s = str(v)
-        try:
-            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.astimezone(timezone.utc).isoformat()
-        except Exception:
-            return s
-
-    def _lookup_query_log(self, database: str, client_request_id: str) -> dict[str, Any] | None:
-        shape = self._discover_query_log(database)
-        if not shape:
-            return None
-
-        token_like = client_request_id.replace("'", "''")
-        sql = (
-            "SELECT "
-            f"{shape['query_id']} AS query_id, "
-            f"{shape['query_text']} AS query_text, "
-            f"{shape['start']} AS start_ts, "
-            f"{shape['end']} AS end_ts, "
-            f"{shape['duration_ms']} AS duration_ms, "
-            f"{shape['scan_bytes']} AS scan_bytes, "
-            f"{shape['result_rows']} AS result_rows, "
-            f"{shape['cpu_ms']} AS cpu_ms, "
-            f"{shape['memory_bytes']} AS memory_bytes, "
-            f"{shape['spilled_bytes']} AS spilled_bytes, "
-            f"{shape['state']} AS state "
-            f"FROM system.{shape['table']} "
-            f"WHERE {shape['query_text']} LIKE '%{token_like}%' "
-            "ORDER BY start_ts DESC LIMIT 1"
-        )
-        try:
-            rows = self._query_rows(database, sql)
-            return rows[0] if rows else None
-        except Exception:
-            return None
-
-    def _lookup_query_log_by_query_id(self, database: str, query_id: str) -> dict[str, Any] | None:
-        shape = self._discover_query_log(database)
-        if not shape:
-            return None
-        qid = query_id.replace("'", "''")
-        sql = (
-            "SELECT "
-            f"{shape['query_id']} AS query_id, "
-            f"{shape['query_text']} AS query_text, "
-            f"{shape['start']} AS start_ts, "
-            f"{shape['end']} AS end_ts, "
-            f"{shape['duration_ms']} AS duration_ms, "
-            f"{shape['scan_bytes']} AS scan_bytes, "
-            f"{shape['result_rows']} AS result_rows, "
-            f"{shape['cpu_ms']} AS cpu_ms, "
-            f"{shape['memory_bytes']} AS memory_bytes, "
-            f"{shape['spilled_bytes']} AS spilled_bytes, "
-            f"{shape['state']} AS state "
-            f"FROM system.{shape['table']} "
-            f"WHERE {shape['query_id']} = '{qid}' "
-            "ORDER BY start_ts DESC LIMIT 1"
-        )
-        try:
-            rows = self._query_rows(database, sql)
-            return rows[0] if rows else None
-        except Exception:
-            return None
-
     def execute(self, *, query_text: str, database: str, client_request_id: str, timeout_s: int) -> dict[str, Any]:
         submit_ts = datetime.now(timezone.utc).isoformat()
         q = f"/* gt:{client_request_id} */ {query_text.strip()}"
@@ -348,25 +200,10 @@ class DatabendAdapter:
                 time.sleep(self.prometheus_scrape_wait_s)
                 prom_after = self._prometheus_snapshot(time.time())
 
-        log_row = None
-        for _ in range(3):
-            if engine_query_id:
-                log_row = self._lookup_query_log_by_query_id(database, engine_query_id)
-            if log_row is None:
-                log_row = self._lookup_query_log(database, client_request_id)
-            if log_row is not None:
-                break
-            time.sleep(0.2)
-
-        start_ts = self._safe_iso(log_row.get("start_ts")) if log_row else submit_ts
-        end_ts = self._safe_iso(log_row.get("end_ts")) if log_row else datetime.fromtimestamp(end_wall, tz=timezone.utc).isoformat()
-
-        if log_row and log_row.get("duration_ms") is not None:
-            duration_ms = float(log_row["duration_ms"])
-            dur_prov = "measured"
-        else:
-            duration_ms = max(0.0, (end_wall - start_wall) * 1000.0)
-            dur_prov = "derived"
+        start_ts = submit_ts
+        end_ts = datetime.fromtimestamp(end_wall, tz=timezone.utc).isoformat()
+        duration_ms = max(0.0, (end_wall - start_wall) * 1000.0)
+        dur_prov = "derived"
 
         if operators is None:
             has_join = 1 if re.search(r"\bJOIN\b", query_text, flags=re.IGNORECASE) else 0
@@ -397,13 +234,11 @@ class DatabendAdapter:
             prom_cpu_ms = max(0.0, (prom_after[0] - prom_before[0]) * 1000.0)
             prom_scan_bytes = max(0.0, prom_after[1] - prom_before[1])
 
-        log_scan_bytes = float(log_row.get("scan_bytes")) if log_row and log_row.get("scan_bytes") is not None else None
-        log_cpu_ms = float(log_row.get("cpu_ms")) if log_row and log_row.get("cpu_ms") is not None else None
-        scan_bytes = log_scan_bytes if log_scan_bytes is not None else prom_scan_bytes
-        cpu_ms = log_cpu_ms if log_cpu_ms is not None else prom_cpu_ms
+        scan_bytes = prom_scan_bytes
+        cpu_ms = prom_cpu_ms
 
         return {
-            "engine_query_id": str(log_row.get("query_id")) if log_row and log_row.get("query_id") is not None else engine_query_id,
+            "engine_query_id": engine_query_id,
             "status": status,
             "error_message": error,
             "submit_ts": submit_ts,
@@ -413,9 +248,9 @@ class DatabendAdapter:
             "duration_prov": dur_prov,
             "scan_bytes": scan_bytes,
             "cpu_ms": cpu_ms,
-            "memory_bytes": float(log_row.get("memory_bytes")) if log_row and log_row.get("memory_bytes") is not None else None,
-            "rows_returned": float(log_row.get("result_rows")) if log_row and log_row.get("result_rows") is not None else None,
-            "bytes_spilled": float(log_row.get("spilled_bytes")) if log_row and log_row.get("spilled_bytes") is not None else None,
+            "memory_bytes": None,
+            "rows_returned": None,
+            "bytes_spilled": None,
             "compile_ms": None,
             "queue_ms": None,
             "execution_ms": duration_ms,
@@ -432,13 +267,9 @@ class DatabendAdapter:
             "has_join": has_join,
             "has_agg": has_agg,
             "has_proj": None,
-            "scan_bytes_prov": (
-                "measured" if log_scan_bytes is not None else ("proxy" if prom_scan_bytes is not None else "missing")
-            ),
-            "cpu_ms_prov": (
-                "measured" if log_cpu_ms is not None else ("proxy" if prom_cpu_ms is not None else "missing")
-            ),
-            "memory_bytes_prov": "measured" if log_row and log_row.get("memory_bytes") is not None else "missing",
+            "scan_bytes_prov": "proxy" if prom_scan_bytes is not None else "missing",
+            "cpu_ms_prov": "proxy" if prom_cpu_ms is not None else "missing",
+            "memory_bytes_prov": "missing",
             "operators_prov": operators_prov,
         }
 

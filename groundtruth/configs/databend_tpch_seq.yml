@@ -10,7 +10,6 @@ engine:
   prometheus_host: 10.0.21.19
   prometheus_port: 9091
   prometheus_scrape_wait_s: 2.0
-  enable_system_query_log_lookup: false
 
 workload:
   benchmark: tpch

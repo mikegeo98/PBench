@@ -225,7 +225,6 @@ def run(config: dict[str, Any], output_events_path: str, *, dry_run: bool = Fals
             int(engine_cfg["prometheus_port"]) if engine_cfg.get("prometheus_port") is not None else None
         ),
         prometheus_scrape_wait_s=float(engine_cfg.get("prometheus_scrape_wait_s", 2.0)),
-        enable_system_query_log_lookup=bool(engine_cfg.get("enable_system_query_log_lookup", False)),
     )
 
     if adapter.prometheus_enabled and (mode == "concurrent" or concurrency > 1):
