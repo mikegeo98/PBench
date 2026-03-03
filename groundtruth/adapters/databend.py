@@ -9,15 +9,33 @@ from typing import Any
 from databend_driver import BlockingDatabendClient
 
 from src.utils.databend_exec import build_databend_dsn
+from src.utils.prometheus import prometheus_queries
 
 
 class DatabendAdapter:
-    def __init__(self, host: str, port: int, default_database: str, *, secure: bool = False):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        default_database: str,
+        *,
+        secure: bool = False,
+        prometheus_host: str | None = None,
+        prometheus_port: int | None = None,
+        prometheus_scrape_wait_s: float = 2.0,
+    ):
         self.host = host
         self.port = int(port)
         self.default_database = default_database
         self.secure = secure
         self._query_log_shape: dict[str, str] | None = None
+        self.prometheus_host = prometheus_host
+        self.prometheus_port = int(prometheus_port) if prometheus_port is not None else None
+        self.prometheus_scrape_wait_s = float(prometheus_scrape_wait_s)
+
+    @property
+    def prometheus_enabled(self) -> bool:
+        return bool(self.prometheus_host and self.prometheus_port)
 
     def _connect(self, database: str, settings: dict[str, Any] | None = None):
         # Keep this aligned with src/utils/databend_exec.py behavior.
@@ -50,6 +68,45 @@ class DatabendAdapter:
                     raise query_error
         finally:
             conn.close()
+
+    def _explain_plan_text(
+        self, database: str, query_text: str, settings: dict[str, Any] | None = None
+    ) -> str:
+        rows = self._query_rows(database, f"EXPLAIN {query_text.strip()}", settings=settings)
+        out: list[str] = []
+        for row in rows:
+            for v in row.values():
+                if v is not None:
+                    out.append(str(v))
+        return "\n".join(out)
+
+    @staticmethod
+    def _operator_stats_from_plan(plan_text: str) -> dict[str, int]:
+        def count(pat: str) -> int:
+            return len(re.findall(pat, plan_text, flags=re.IGNORECASE))
+
+        joins = count(r"\b(HashJoin|MergeJoin|NestedLoopJoin|CrossJoin|Join)\b")
+        scans = count(r"\b(TableScan|Scan|ReadDataSource)\b")
+        aggs = count(r"\b(AggregateFinal|AggregatePartial|Aggregate|GroupBy)\b")
+        filters = count(r"\bFilter\b|filters:")
+        sorts = count(r"\bSort\b")
+        return {
+            "num_joins": joins,
+            "num_scans": scans,
+            "num_aggregations": aggs,
+            "has_join": 1 if joins > 0 else 0,
+            "has_filter": 1 if filters > 0 else 0,
+            "has_sort": 1 if sorts > 0 else 0,
+            "has_agg": 1 if aggs > 0 else 0,
+            "operators_prov": "measured",
+        }
+
+    def _prometheus_snapshot(self, ts: float) -> tuple[float, float]:
+        if not self.prometheus_enabled:
+            return (0.0, 0.0)
+        cpu_s = float(prometheus_queries["cpu_new"](self.prometheus_host, self.prometheus_port, ts))
+        scan_b = float(prometheus_queries["scan"](self.prometheus_host, self.prometheus_port, ts))
+        return (cpu_s, scan_b)
 
     def _execute_sql_with_query_id(
         self, database: str, sql: str, settings: dict[str, Any] | None = None
@@ -225,12 +282,28 @@ class DatabendAdapter:
         end_wall = None
         # Match llm_gen/databend_exec: use http_handler_result_timeout_secs, not max_execution_time.
         session_settings = {"http_handler_result_timeout_secs": str(timeout_s)}
+
+        operators = None
+        try:
+            plan_text = self._explain_plan_text(database, query_text, settings=session_settings)
+            operators = self._operator_stats_from_plan(plan_text)
+        except Exception:
+            operators = None
+
+        prom_before = None
+        prom_after = None
+        if self.prometheus_enabled:
+            time.sleep(self.prometheus_scrape_wait_s)
+            prom_before = self._prometheus_snapshot(time.time())
         try:
             engine_query_id, status, error = self._execute_sql_with_query_id(
                 database, q, settings=session_settings
             )
         finally:
             end_wall = time.time()
+            if self.prometheus_enabled:
+                time.sleep(self.prometheus_scrape_wait_s)
+                prom_after = self._prometheus_snapshot(time.time())
 
         log_row = None
         for _ in range(3):
@@ -252,14 +325,39 @@ class DatabendAdapter:
             duration_ms = max(0.0, (end_wall - start_wall) * 1000.0)
             dur_prov = "derived"
 
-        has_join = 1 if re.search(r"\bJOIN\b", query_text, flags=re.IGNORECASE) else 0
-        has_agg = 1 if re.search(
-            r"\bGROUP\s+BY\b|\bCOUNT\s*\(|\bSUM\s*\(|\bAVG\s*\(|\bMIN\s*\(|\bMAX\s*\(",
-            query_text,
-            flags=re.IGNORECASE,
-        ) else 0
-        has_sort = 1 if re.search(r"\bORDER\s+BY\b", query_text, flags=re.IGNORECASE) else 0
-        has_filter = 1 if re.search(r"\bWHERE\b", query_text, flags=re.IGNORECASE) else 0
+        if operators is None:
+            has_join = 1 if re.search(r"\bJOIN\b", query_text, flags=re.IGNORECASE) else 0
+            has_agg = 1 if re.search(
+                r"\bGROUP\s+BY\b|\bCOUNT\s*\(|\bSUM\s*\(|\bAVG\s*\(|\bMIN\s*\(|\bMAX\s*\(",
+                query_text,
+                flags=re.IGNORECASE,
+            ) else 0
+            has_sort = 1 if re.search(r"\bORDER\s+BY\b", query_text, flags=re.IGNORECASE) else 0
+            has_filter = 1 if re.search(r"\bWHERE\b", query_text, flags=re.IGNORECASE) else 0
+            num_joins = float(has_join)
+            num_scans = None
+            num_aggregations = float(has_agg)
+            operators_prov = "proxy"
+        else:
+            has_join = int(operators["has_join"])
+            has_filter = int(operators["has_filter"])
+            has_sort = int(operators["has_sort"])
+            has_agg = int(operators["has_agg"])
+            num_joins = float(operators["num_joins"])
+            num_scans = float(operators["num_scans"])
+            num_aggregations = float(operators["num_aggregations"])
+            operators_prov = operators["operators_prov"]
+
+        prom_cpu_ms = None
+        prom_scan_bytes = None
+        if prom_before is not None and prom_after is not None:
+            prom_cpu_ms = max(0.0, (prom_after[0] - prom_before[0]) * 1000.0)
+            prom_scan_bytes = max(0.0, prom_after[1] - prom_before[1])
+
+        log_scan_bytes = float(log_row.get("scan_bytes")) if log_row and log_row.get("scan_bytes") is not None else None
+        log_cpu_ms = float(log_row.get("cpu_ms")) if log_row and log_row.get("cpu_ms") is not None else None
+        scan_bytes = log_scan_bytes if log_scan_bytes is not None else prom_scan_bytes
+        cpu_ms = log_cpu_ms if log_cpu_ms is not None else prom_cpu_ms
 
         return {
             "engine_query_id": str(log_row.get("query_id")) if log_row and log_row.get("query_id") is not None else engine_query_id,
@@ -270,17 +368,17 @@ class DatabendAdapter:
             "end_ts": end_ts,
             "duration_ms": duration_ms,
             "duration_prov": dur_prov,
-            "scan_bytes": float(log_row.get("scan_bytes")) if log_row and log_row.get("scan_bytes") is not None else None,
-            "cpu_ms": float(log_row.get("cpu_ms")) if log_row and log_row.get("cpu_ms") is not None else None,
+            "scan_bytes": scan_bytes,
+            "cpu_ms": cpu_ms,
             "memory_bytes": float(log_row.get("memory_bytes")) if log_row and log_row.get("memory_bytes") is not None else None,
             "rows_returned": float(log_row.get("result_rows")) if log_row and log_row.get("result_rows") is not None else None,
             "bytes_spilled": float(log_row.get("spilled_bytes")) if log_row and log_row.get("spilled_bytes") is not None else None,
             "compile_ms": None,
             "queue_ms": None,
             "execution_ms": duration_ms,
-            "num_joins": float(has_join),
-            "num_scans": None,
-            "num_aggregations": float(has_agg),
+            "num_joins": num_joins,
+            "num_scans": num_scans,
+            "num_aggregations": num_aggregations,
             "read_table_ids": None,
             "write_table_ids": None,
             "query_type": None,
@@ -291,10 +389,14 @@ class DatabendAdapter:
             "has_join": has_join,
             "has_agg": has_agg,
             "has_proj": None,
-            "scan_bytes_prov": "measured" if log_row and log_row.get("scan_bytes") is not None else "missing",
-            "cpu_ms_prov": "measured" if log_row and log_row.get("cpu_ms") is not None else "missing",
+            "scan_bytes_prov": (
+                "measured" if log_scan_bytes is not None else ("proxy" if prom_scan_bytes is not None else "missing")
+            ),
+            "cpu_ms_prov": (
+                "measured" if log_cpu_ms is not None else ("proxy" if prom_cpu_ms is not None else "missing")
+            ),
             "memory_bytes_prov": "measured" if log_row and log_row.get("memory_bytes") is not None else "missing",
-            "operators_prov": "proxy",
+            "operators_prov": operators_prov,
         }
 
 

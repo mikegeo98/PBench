@@ -220,7 +220,18 @@ def run(config: dict[str, Any], output_events_path: str, *, dry_run: bool = Fals
         host=str(engine_cfg.get("host", "localhost")),
         port=int(engine_cfg.get("port", 8000)),
         default_database=str(engine_cfg.get("default_database", "default")),
+        prometheus_host=str(engine_cfg.get("prometheus_host", engine_cfg.get("host", "localhost"))),
+        prometheus_port=(
+            int(engine_cfg["prometheus_port"]) if engine_cfg.get("prometheus_port") is not None else None
+        ),
+        prometheus_scrape_wait_s=float(engine_cfg.get("prometheus_scrape_wait_s", 2.0)),
     )
+
+    if adapter.prometheus_enabled and (mode == "concurrent" or concurrency > 1):
+        raise ValueError(
+            "Prometheus delta metric collection requires sequential execution. "
+            "Set execution.mode=sequential and execution.concurrency=1."
+        )
 
     by_event_id: dict[str, GroundTruthEvent] = {}
 
