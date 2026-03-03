@@ -24,6 +24,7 @@ class DatabendAdapter:
         prometheus_host: str | None = None,
         prometheus_port: int | None = None,
         prometheus_scrape_wait_s: float = 2.0,
+        enable_system_query_log_lookup: bool = False,
     ):
         self.host = host
         self.port = int(port)
@@ -33,6 +34,8 @@ class DatabendAdapter:
         self.prometheus_host = prometheus_host
         self.prometheus_port = int(prometheus_port) if prometheus_port is not None else None
         self.prometheus_scrape_wait_s = float(prometheus_scrape_wait_s)
+        self.enable_system_query_log_lookup = bool(enable_system_query_log_lookup)
+        self._query_log_checked = False
 
     @property
     def prometheus_enabled(self) -> bool:
@@ -183,7 +186,9 @@ class DatabendAdapter:
         return "unknown"
 
     def _discover_query_log(self, database: str) -> dict[str, str] | None:
-        if self._query_log_shape is not None:
+        if not self.enable_system_query_log_lookup:
+            return None
+        if self._query_log_checked:
             return self._query_log_shape
 
         candidates = ["query_log", "query_history"]
@@ -199,12 +204,14 @@ class DatabendAdapter:
             table = None
 
         if not table:
+            self._query_log_checked = True
             self._query_log_shape = None
             return None
 
         try:
             desc_rows = self._query_rows(database, f"DESCRIBE system.{table}")
         except Exception:
+            self._query_log_checked = True
             self._query_log_shape = None
             return None
 
@@ -230,6 +237,7 @@ class DatabendAdapter:
             "spilled_bytes": pick("spilled_bytes", "spill_bytes") or "spilled_bytes",
             "state": pick("state", "status") or "state",
         }
+        self._query_log_checked = True
         self._query_log_shape = shape
         return shape
 
