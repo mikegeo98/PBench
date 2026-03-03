@@ -83,16 +83,31 @@ class DatabendAdapter:
             secure=self.secure,
             explain_mode="EXPLAIN ANALYZE",
         )
-        return str(results)
+        # results item shape follows utils.databend_exec.execute_databend_sql:
+        # ([], rows, rows). We intentionally only use index 1 to avoid double
+        # counting due to legacy duplication of rows at index 2.
+        plan_lines: list[str] = []
+        for item in results:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
+                continue
+            rows = item[1] or []
+            for row in rows:
+                if isinstance(row, (list, tuple)) and row:
+                    plan_lines.append(str(row[0]))
+                else:
+                    plan_lines.append(str(row))
+        return "\n".join(plan_lines)
 
     @staticmethod
     def _operator_stats_from_plan(plan_text: str) -> dict[str, int]:
+        # Count concrete operator node names instead of broad keywords.
+        # This is more stable across plan formatting changes.
         def count(pat: str) -> int:
             return len(re.findall(pat, plan_text, flags=re.IGNORECASE))
 
-        joins = count(r"\b(HashJoin|MergeJoin|NestedLoopJoin|CrossJoin|Join)\b")
-        scans = count(r"\b(TableScan|Scan|ReadDataSource)\b")
-        aggs = count(r"\b(AggregateFinal|AggregatePartial|Aggregate|GroupBy)\b")
+        joins = count(r"\b(HashJoin|MergeJoin|NestedLoopJoin|CrossJoin|RangeJoin)\b")
+        scans = count(r"\b(TableScan|ReadDataSource)\b")
+        aggs = count(r"\b(AggregateFinal|AggregatePartial)\b")
         filters = count(r"\bFilter\b|filters:")
         sorts = count(r"\bSort\b")
         return {
