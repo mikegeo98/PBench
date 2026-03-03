@@ -17,7 +17,7 @@ import numpy as np
 from datetime import datetime
 import os, copy, time
 from openai import OpenAI
-from databend_py import Client
+from databend_driver import BlockingDatabendClient
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../Collect_metrics"))
@@ -36,6 +36,7 @@ import argparse
 import signal
 
 import platform
+from urllib.parse import urlencode
 
 
 class TimeoutException(Exception):
@@ -564,13 +565,15 @@ def _execute_query_impl(host, port, query, database, http_result_timeout_secs=12
     for q in query:
         if not q.startswith("Explain") and not q.startswith("EXPLAIN"):
             q = "Explain " + q
-        client = Client(f"root:@{host}", port=port, secure=False, database=database)
-        ret.append(
-            client.execute(
-                q,
-                settings=llm_session_settings,
-            )
-        )
+        params = {"sslmode": "disable"}
+        params.update(llm_session_settings)
+        dsn = f"databend://root:@{host}:{port}/{database}?{urlencode(params)}"
+        conn = BlockingDatabendClient(dsn).get_conn()
+        try:
+            rows = [tuple(row.values()) for row in conn.query_iter(q)]
+            ret.append(([], rows, rows))
+        finally:
+            conn.close()
     return ret
 
 

@@ -856,6 +856,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "bayesian-optimization" },
+    { name = "databend-driver" },
     { name = "databend-py" },
     { name = "duckdb" },
     { name = "func-timeout" },
@@ -874,6 +875,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bayesian-optimization", specifier = "==1.4.3" },
+    { name = "databend-driver", specifier = ">=0.33.4" },
     { name = "databend-py", specifier = "==0.5.4" },
     { name = "duckdb", specifier = ">=1.4.4" },
     { name = "func-timeout", specifier = "==4.3.5" },

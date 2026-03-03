@@ -62,7 +62,7 @@ Important assumptions:
 - For short queries, use a suitable Prometheus scrape interval and collection wait.
 
 Dependencies:
-- required: `databend_py`, `requests`, `python-dotenv`
+- required: `databend_driver`, `requests`, `python-dotenv`
 - optional:
   - `psycopg2-binary` for PostgreSQL
   - `duckdb` for DuckDB

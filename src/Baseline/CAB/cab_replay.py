@@ -3,9 +3,10 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from urllib.parse import urlencode
 
 import numpy as np
-from databend_py import Client
+from databend_driver import BlockingDatabendClient
 from dotenv import load_dotenv
 import subprocess
 import re
@@ -22,12 +23,16 @@ def get_time():
 
 def execute_query(host, port, query, database):
     """ Execute a given SQL query using the databend client. """
-    client = Client(f"root:@{host}", port=port, secure=False, database=database)
+    params = urlencode({"sslmode": "disable"})
+    dsn = f"databend://root:@{host}:{port}/{database}?{params}"
+    conn = BlockingDatabendClient(dsn).get_conn()
     try:
-        _ = client.execute(query)
+        _ = [tuple(row.values()) for row in conn.query_iter(query)]
     except Exception as e:
         print(f"Error: {e}")
         pass
+    finally:
+        conn.close()
 
 
 def load_plan(config):

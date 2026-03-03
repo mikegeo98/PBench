@@ -11,7 +11,8 @@ import numpy as np
 from datetime import datetime
 import os, copy, time
 from openai import OpenAI
-from databend_py import Client
+from urllib.parse import urlencode
+from databend_driver import BlockingDatabendClient
 from common.prometheus import prometheus_queries
 
 
@@ -180,8 +181,13 @@ class Llm:
 
 def execute_query(host, port, query):
     """ Execute a given SQL query using the databend client. """
-    client = Client(f"root:@{host}", port=port, secure=False)
-    return client.execute(query)
+    dsn = f"databend://root:@{host}:{port}/default?{urlencode({'sslmode': 'disable'})}"
+    conn = BlockingDatabendClient(dsn).get_conn()
+    try:
+        rows = [tuple(row.values()) for row in conn.query_iter(query)]
+        return ([], rows, rows)
+    finally:
+        conn.close()
 
 
 def record_operator(host, databend_port, query):

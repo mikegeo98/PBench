@@ -1,5 +1,5 @@
 bayesian-optimization==1.4.3
-databend-py==0.5.4
+databend-driver>=0.33.4
 func-timeout==4.3.5
 numpy==1.26.1
 openai==1.58.1

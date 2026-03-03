@@ -3,13 +3,16 @@ import multiprocessing
 import os
 import re
 import time
+from urllib.parse import urlencode
 
-from databend_py import Client
+from databend_driver import BlockingDatabendClient
 
 
 def execute(driver):
     """  Executes the SQL queries at a specified frequency for a given duration. """
-    client = Client(f"root:@{driver.host}", port=driver.port, secure=False, database=driver.database)
+    params = urlencode({"sslmode": "disable"})
+    dsn = f"databend://root:@{driver.host}:{driver.port}/{driver.database}?{params}"
+    conn = BlockingDatabendClient(dsn).get_conn()
     start_time = time.time()
     interval = int(driver.time_slot * 0.9 / driver.frequency)
     idx = -1
@@ -33,7 +36,7 @@ def execute(driver):
             if not q.startswith("Explain Analyze") and not q.startswith("EXPLAIN ANALYZE"):
                 q = "Explain Analyze " + q
             print(q)
-            ret.append(client.execute(q))
+            ret.append([tuple(row.values()) for row in conn.query_iter(q)])
 
         cnt += 1
         diff = time.time() - begin
@@ -44,6 +47,7 @@ def execute(driver):
             break
         
         time.sleep(max(0, interval - diff))
+    conn.close()
 
 
 class BenchmarkDriver:
