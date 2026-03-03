@@ -233,10 +233,14 @@ class DatabendAdapter:
             end_wall = time.time()
 
         log_row = None
-        if engine_query_id:
-            log_row = self._lookup_query_log_by_query_id(database, engine_query_id)
-        if log_row is None:
-            log_row = self._lookup_query_log(database, client_request_id)
+        for _ in range(3):
+            if engine_query_id:
+                log_row = self._lookup_query_log_by_query_id(database, engine_query_id)
+            if log_row is None:
+                log_row = self._lookup_query_log(database, client_request_id)
+            if log_row is not None:
+                break
+            time.sleep(0.2)
 
         start_ts = self._safe_iso(log_row.get("start_ts")) if log_row else submit_ts
         end_ts = self._safe_iso(log_row.get("end_ts")) if log_row else datetime.fromtimestamp(end_wall, tz=timezone.utc).isoformat()
