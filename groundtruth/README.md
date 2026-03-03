@@ -19,6 +19,7 @@ python groundtruth/create_aggregate_trace.py \
 ## Notes
 
 - The Databend adapter is implemented first.
+- The default TPCH sequential config runs all 22 TPCH queries (`max_queries: 22`).
 - Sequential mode (`execution.mode=sequential`, `execution.concurrency=1`) supports per-query Prometheus deltas for `cpu_ms` and `scan_bytes` when `engine.prometheus_port` is configured.
 - Existing `Collect_metrics` defaults typically use Prometheus on port `9091`; use that unless your deployment differs.
 - Concurrent mode is still supported, but Prometheus delta collection is disabled for concurrent runs.

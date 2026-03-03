@@ -21,4 +21,4 @@ execution:
   timeout_s: 300
   seed: 42
   selection_mode: as_is
-  max_queries: 5
+  max_queries: 22

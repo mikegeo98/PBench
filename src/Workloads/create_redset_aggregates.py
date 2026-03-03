@@ -151,6 +151,19 @@ def build_rows(
     start_str = start_utc.strftime("%Y-%m-%d %H:%M:%S")
     end_str = end_utc.strftime("%Y-%m-%d %H:%M:%S")
     redset_scan = _parquet_scan_expr(redset_parquet)
+    schema_rows = con.execute(f"DESCRIBE SELECT * FROM {redset_scan}").fetchall()
+    available_cols = {str(r[0]).lower() for r in schema_rows}
+    cpu_expr = "COALESCE(cpu_ms, execution_duration_ms, 0)" if "cpu_ms" in available_cols else "COALESCE(execution_duration_ms, 0)"
+    has_filter_expr = (
+        "CASE WHEN has_filter IS NULL THEN NULL ELSE CASE WHEN has_filter > 0 THEN 1.0 ELSE 0.0 END END"
+        if "has_filter" in available_cols
+        else "NULL"
+    )
+    has_sort_expr = (
+        "CASE WHEN has_sort IS NULL THEN NULL ELSE CASE WHEN has_sort > 0 THEN 1.0 ELSE 0.0 END END"
+        if "has_sort" in available_cols
+        else "NULL"
+    )
 
     # Query-level base set with overlap to the requested window.
     combined_id = f"{spec.instance_id}:{spec.database_id}"
@@ -169,7 +182,7 @@ def build_rows(
                + COALESCE(queue_duration_ms, 0)
                + COALESCE(execution_duration_ms, 0)) * INTERVAL 1 MILLISECOND
             ) AS finish_ts,
-          GREATEST(COALESCE(execution_duration_ms, 0) / 1000.0, 0.0) AS cpu_s_proxy,
+          GREATEST({cpu_expr} / 1000.0, 0.0) AS cpu_s_proxy,
           GREATEST(
             (COALESCE(compile_duration_ms, 0)
              + COALESCE(queue_duration_ms, 0)
@@ -178,7 +191,9 @@ def build_rows(
           ) AS duration_s,
           GREATEST(COALESCE(mbytes_scanned, 0) / 1024.0, 0.0) AS scan_gb,
           CASE WHEN COALESCE(num_joins, 0) > 0 THEN 1.0 ELSE 0.0 END AS has_join,
-          CASE WHEN COALESCE(num_aggregations, 0) > 0 THEN 1.0 ELSE 0.0 END AS has_agg
+          CASE WHEN COALESCE(num_aggregations, 0) > 0 THEN 1.0 ELSE 0.0 END AS has_agg,
+          {has_filter_expr} AS has_filter_raw,
+          {has_sort_expr} AS has_sort_raw
         FROM {redset_scan}
         WHERE CAST(instance_id AS VARCHAR) = ?
           AND CAST(database_id AS VARCHAR) = ?
@@ -259,8 +274,8 @@ def build_rows(
         SELECT
           br.*,
           GREATEST(epoch(br.finish_ts) - epoch(br.start_ts), 1e-6) AS runtime_s,
-          {filter_expr} AS filter_value,
-          {sort_expr} AS sort_value
+          COALESCE(br.has_filter_raw, {filter_expr}) AS filter_value,
+          COALESCE(br.has_sort_raw, {sort_expr}) AS sort_value
         FROM base_raw br
         LEFT JOIN filter_baseline fb USING (read_table_ids)
         """
