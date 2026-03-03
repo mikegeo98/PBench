@@ -20,6 +20,8 @@ class DatabendAdapter:
         self._query_log_shape: dict[str, str] | None = None
 
     def _connect(self, database: str, settings: dict[str, Any] | None = None):
+        # Some Databend builds reject unknown DSN/session variables at login time.
+        # Retry without optional settings if that happens.
         dsn = build_databend_dsn(
             host=self.host,
             port=self.port,
@@ -27,7 +29,19 @@ class DatabendAdapter:
             settings=settings,
             secure=self.secure,
         )
-        return BlockingDatabendClient(dsn).get_conn()
+        try:
+            return BlockingDatabendClient(dsn).get_conn()
+        except Exception as exc:
+            if settings and "Unknown variable" in str(exc):
+                fallback_dsn = build_databend_dsn(
+                    host=self.host,
+                    port=self.port,
+                    database=database,
+                    settings=None,
+                    secure=self.secure,
+                )
+                return BlockingDatabendClient(fallback_dsn).get_conn()
+            raise
 
     def _query_rows(self, database: str, sql: str, settings: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         conn = self._connect(database, settings=settings)
