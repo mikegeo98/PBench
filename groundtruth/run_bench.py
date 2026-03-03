@@ -232,6 +232,14 @@ def run(config: dict[str, Any], output_events_path: str, *, dry_run: bool = Fals
             "Prometheus delta metric collection requires sequential execution. "
             "Set execution.mode=sequential and execution.concurrency=1."
         )
+    if adapter.prometheus_enabled:
+        ok, msg = adapter.check_prometheus_endpoint()
+        if not ok:
+            raise ValueError(
+                "Prometheus endpoint check failed: "
+                f"{msg}. If you follow existing Collect_metrics defaults, "
+                "use prometheus_port=9091."
+            )
 
     by_event_id: dict[str, GroundTruthEvent] = {}
 

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import requests
 from databend_driver import BlockingDatabendClient
 
 from src.utils.databend_exec import build_databend_dsn
@@ -107,6 +108,21 @@ class DatabendAdapter:
         cpu_s = float(prometheus_queries["cpu_new"](self.prometheus_host, self.prometheus_port, ts))
         scan_b = float(prometheus_queries["scan"](self.prometheus_host, self.prometheus_port, ts))
         return (cpu_s, scan_b)
+
+    def check_prometheus_endpoint(self) -> tuple[bool, str]:
+        if not self.prometheus_enabled:
+            return (True, "disabled")
+        url = f"http://{self.prometheus_host}:{self.prometheus_port}/api/v1/status/buildinfo"
+        try:
+            resp = requests.get(url, timeout=5)
+            if resp.status_code != 200:
+                return (False, f"{url} returned HTTP {resp.status_code}")
+            payload = resp.json()
+            if payload.get("status") != "success":
+                return (False, f"{url} returned non-success payload")
+            return (True, "ok")
+        except Exception as exc:
+            return (False, f"{url} unreachable or not Prometheus API ({type(exc).__name__}: {exc})")
 
     def _execute_sql_with_query_id(
         self, database: str, sql: str, settings: dict[str, Any] | None = None
