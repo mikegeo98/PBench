@@ -49,6 +49,7 @@ src/Baseline/output/
 src/Baseline/CAB/output/
 src/Baseline/CAB/tmp_res/
 src/Baseline/Stitcher/output/
+groundtruth/output/
 
 # Docker volumes
 databend-data/

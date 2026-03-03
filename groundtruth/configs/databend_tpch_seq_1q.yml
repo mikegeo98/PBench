@@ -1,0 +1,21 @@
+run:
+  run_id: demo-databend-seq-1q
+  output_root: groundtruth/output
+
+engine:
+  type: databend
+  host: 10.0.21.19
+  port: 8000
+  default_database: default
+
+workload:
+  benchmark: tpch
+  query_pool_path: src/Collect_metrics/metrics_witho/input/TPCH-tpch1g-sql-input.json
+
+execution:
+  mode: sequential
+  concurrency: 1
+  timeout_s: 60
+  seed: 42
+  selection_mode: as_is
+  max_queries: 1
