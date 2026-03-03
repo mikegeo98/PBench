@@ -10,7 +10,7 @@ engine:
 
 workload:
   benchmark: tpch
-  query_pool_path: src/Collect_metrics/metrics_witho/input/TPCH-tpch1g-sql-input.json
+  query_pool_path: src/Collect_metrics/metrics_witho/input/TPCH-tpch1g-sql-input-standard.json
 
 execution:
   mode: concurrent

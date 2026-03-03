@@ -51,6 +51,36 @@ class DatabendAdapter:
         finally:
             conn.close()
 
+    def _execute_sql_with_query_id(
+        self, database: str, sql: str, settings: dict[str, Any] | None = None
+    ) -> tuple[str | None, str, str | None]:
+        """
+        Execute SQL and return (engine_query_id, status, error_message).
+        Keeps a single connection so we can read `last_query_id()` reliably.
+        """
+        conn = self._connect(database, settings=settings)
+        try:
+            try:
+                _ = [tuple(r.values()) for r in conn.query_iter(sql)]
+                status = "success"
+                error = None
+            except Exception as query_error:
+                try:
+                    conn.exec(sql)
+                    status = "success"
+                    error = None
+                except Exception:
+                    status = "error"
+                    error = str(query_error)
+            query_id = None
+            try:
+                query_id = conn.last_query_id()
+            except Exception:
+                query_id = None
+            return (str(query_id) if query_id else None, status, error)
+        finally:
+            conn.close()
+
     def get_engine_version(self) -> str:
         try:
             rows = self._query_rows(self.default_database, "SELECT version() AS v")
@@ -157,24 +187,56 @@ class DatabendAdapter:
         except Exception:
             return None
 
+    def _lookup_query_log_by_query_id(self, database: str, query_id: str) -> dict[str, Any] | None:
+        shape = self._discover_query_log(database)
+        if not shape:
+            return None
+        qid = query_id.replace("'", "''")
+        sql = (
+            "SELECT "
+            f"{shape['query_id']} AS query_id, "
+            f"{shape['query_text']} AS query_text, "
+            f"{shape['start']} AS start_ts, "
+            f"{shape['end']} AS end_ts, "
+            f"{shape['duration_ms']} AS duration_ms, "
+            f"{shape['scan_bytes']} AS scan_bytes, "
+            f"{shape['result_rows']} AS result_rows, "
+            f"{shape['cpu_ms']} AS cpu_ms, "
+            f"{shape['memory_bytes']} AS memory_bytes, "
+            f"{shape['spilled_bytes']} AS spilled_bytes, "
+            f"{shape['state']} AS state "
+            f"FROM system.{shape['table']} "
+            f"WHERE {shape['query_id']} = '{qid}' "
+            "ORDER BY start_ts DESC LIMIT 1"
+        )
+        try:
+            rows = self._query_rows(database, sql)
+            return rows[0] if rows else None
+        except Exception:
+            return None
+
     def execute(self, *, query_text: str, database: str, client_request_id: str, timeout_s: int) -> dict[str, Any]:
         submit_ts = datetime.now(timezone.utc).isoformat()
         q = f"/* gt:{client_request_id} */ {query_text.strip()}"
         status = "success"
         error = None
+        engine_query_id = None
         start_wall = time.time()
         end_wall = None
         # Match llm_gen/databend_exec: use http_handler_result_timeout_secs, not max_execution_time.
         session_settings = {"http_handler_result_timeout_secs": str(timeout_s)}
         try:
-            self._execute_sql(database, q, settings=session_settings)
-        except Exception as exc:
-            status = "error"
-            error = str(exc)
+            engine_query_id, status, error = self._execute_sql_with_query_id(
+                database, q, settings=session_settings
+            )
         finally:
             end_wall = time.time()
 
-        log_row = self._lookup_query_log(database, client_request_id)
+        log_row = None
+        if engine_query_id:
+            log_row = self._lookup_query_log_by_query_id(database, engine_query_id)
+        if log_row is None:
+            log_row = self._lookup_query_log(database, client_request_id)
 
         start_ts = self._safe_iso(log_row.get("start_ts")) if log_row else submit_ts
         end_ts = self._safe_iso(log_row.get("end_ts")) if log_row else datetime.fromtimestamp(end_wall, tz=timezone.utc).isoformat()
@@ -186,14 +248,17 @@ class DatabendAdapter:
             duration_ms = max(0.0, (end_wall - start_wall) * 1000.0)
             dur_prov = "derived"
 
-        query_upper = query_text.upper()
-        has_join = 1 if " JOIN " in f" {query_upper} " else 0
-        has_agg = 1 if any(x in query_upper for x in [" GROUP BY ", "COUNT(", "SUM(", "AVG(", "MIN(", "MAX("]) else 0
-        has_sort = 1 if " ORDER BY " in query_upper else 0
-        has_filter = 1 if " WHERE " in query_upper else 0
+        has_join = 1 if re.search(r"\bJOIN\b", query_text, flags=re.IGNORECASE) else 0
+        has_agg = 1 if re.search(
+            r"\bGROUP\s+BY\b|\bCOUNT\s*\(|\bSUM\s*\(|\bAVG\s*\(|\bMIN\s*\(|\bMAX\s*\(",
+            query_text,
+            flags=re.IGNORECASE,
+        ) else 0
+        has_sort = 1 if re.search(r"\bORDER\s+BY\b", query_text, flags=re.IGNORECASE) else 0
+        has_filter = 1 if re.search(r"\bWHERE\b", query_text, flags=re.IGNORECASE) else 0
 
         return {
-            "engine_query_id": str(log_row.get("query_id")) if log_row and log_row.get("query_id") is not None else None,
+            "engine_query_id": str(log_row.get("query_id")) if log_row and log_row.get("query_id") is not None else engine_query_id,
             "status": status,
             "error_message": error,
             "submit_ts": submit_ts,
