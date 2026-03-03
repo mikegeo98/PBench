@@ -8,8 +8,11 @@ import time
 import func_timeout
 
 FILE_DIR = Path(__file__).resolve().parent
+SRC_ROOT = (FILE_DIR / "../../../").resolve()
 COMMON_DIR = (FILE_DIR / "../../../common").resolve()
 COLLECT_METRICS_DIR = (FILE_DIR / "../../../Collect_metrics").resolve()
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 if COMMON_DIR.exists() and str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
 if str(COLLECT_METRICS_DIR) not in sys.path:
@@ -24,9 +27,9 @@ import numpy as np
 from datetime import datetime
 import os, copy, time
 from openai import OpenAI
-from databend_driver import BlockingDatabendClient
 
 from prometheus import prometheus_queries
+from utils.databend_exec import execute_databend_query
 
 def get_time():
     # get local time
@@ -42,7 +45,6 @@ import argparse
 import signal
 
 import platform
-from urllib.parse import urlencode
 
 
 class TimeoutException(Exception):
@@ -659,14 +661,14 @@ class Llm:
 ### Replay Begin ###
 
 
-def _execute_query_impl(host, port, query, database, http_result_timeout_secs=120):
-    # if there are more than one query in the file, only execute them one by one
-    query = query.split(";")
-    # make sure the last query is not empty
-    if query[-1] == "":
-        query = query[:-1]
-    # add the last semicolon to each query
-    query = [q + ";" for q in query]
+def _execute_query_impl(
+    host,
+    port,
+    query,
+    database,
+    http_result_timeout_secs=120,
+    explain_mode=None,
+):
     llm_session_settings = {
         "http_handler_result_timeout_secs": str(http_result_timeout_secs),
         # Hard limits to prevent Databend OOM during LLM-driven replay.
@@ -677,29 +679,30 @@ def _execute_query_impl(host, port, query, database, http_result_timeout_secs=12
         "aggregate_spilling_memory_ratio": "40",
         "sort_spilling_memory_ratio": "40",
     }
-    ret = []
-    for q in query:
-        if not q.startswith("Explain") and not q.startswith("EXPLAIN"):
-            q = "Explain " + q
-        params = {"sslmode": "disable"}
-        params.update(llm_session_settings)
-        dsn = f"databend://root:@{host}:{port}/{database}?{urlencode(params)}"
-        conn = BlockingDatabendClient(dsn).get_conn()
-        try:
-            rows = [tuple(row.values()) for row in conn.query_iter(q)]
-            ret.append(([], rows, rows))
-        finally:
-            conn.close()
-    return ret
+    return execute_databend_query(
+        host=host,
+        port=port,
+        database=database,
+        query=query,
+        settings=llm_session_settings,
+        secure=False,
+        explain_mode=explain_mode,
+    )
 
 
 def execute_query(
-    host, port, query, database, timeout_secs=120, http_result_timeout_secs=120
+    host,
+    port,
+    query,
+    database,
+    timeout_secs=120,
+    http_result_timeout_secs=120,
+    explain_mode=None,
 ):
     return func_timeout.func_timeout(
         timeout_secs,
         _execute_query_impl,
-        args=(host, port, query, database, http_result_timeout_secs),
+        args=(host, port, query, database, http_result_timeout_secs, explain_mode),
     )
 
 
@@ -754,6 +757,7 @@ def record_operator(
             database,
             timeout_secs=timeout_secs,
             http_result_timeout_secs=http_result_timeout_secs,
+            explain_mode="EXPLAIN ANALYZE",
         )
     except func_timeout.exceptions.FunctionTimedOut:
         print(f"Error: ")
@@ -816,6 +820,7 @@ def record_metrics(
             database,
             timeout_secs=timeout_secs,
             http_result_timeout_secs=http_result_timeout_secs,
+            explain_mode=None,
         )
     except Exception as e:
         print(f"Error: {e}")

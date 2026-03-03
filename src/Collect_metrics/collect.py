@@ -3,12 +3,10 @@ import json
 import os
 import re
 import time
-from urllib.parse import urlencode
 from pathlib import Path
 from datetime import datetime
 import sys
 
-from databend_driver import BlockingDatabendClient
 from dotenv import load_dotenv
 
 # Make sure the repo's `src` directory is on the import path so we can reuse utils.
@@ -17,6 +15,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.prometheus import prometheus_queries
+from utils.databend_exec import (
+    apply_explain_mode,
+    execute_databend_sql,
+    split_sql_statements,
+)
 
 # Optional database support
 try:
@@ -138,42 +141,16 @@ def load_query_from_json(path):
 # Databend Functions
 # =============================================================================
 
-def _execute_databend_sql(host, port, database, sql, settings=None, secure=False):
-    params = {}
-    if not secure:
-        params["sslmode"] = "disable"
-    if settings:
-        params.update({k: str(v) for k, v in settings.items() if v is not None})
-    query = urlencode(params)
-    dsn = f"databend://root:@{host}:{port}/{database}" + (f"?{query}" if query else "")
-    conn = BlockingDatabendClient(dsn).get_conn()
-    try:
-        rows = [tuple(row.values()) for row in conn.query_iter(sql)]
-        return ([], rows, rows)
-    except Exception as query_error:
-        # Statements without result sets should still execute successfully.
-        try:
-            conn.exec(sql)
-            return ([], [], [])
-        except Exception:
-            raise query_error
-    finally:
-        conn.close()
-
 
 def execute_query_databend(host, port, query, database, explain_analyze=False):
     """Execute query on Databend."""
-    query_parts = query.split(";")
-    if query_parts[-1] == "":
-        query_parts = query_parts[:-1]
-    query_parts = [q + ";" for q in query_parts]
     ret = []
-    for q in query_parts:
-        if explain_analyze and not q.upper().startswith("EXPLAIN ANALYZE"):
-            q = "EXPLAIN ANALYZE " + q
+    explain_mode = "EXPLAIN ANALYZE" if explain_analyze else None
+    for q in split_sql_statements(query):
+        q = apply_explain_mode(q, explain_mode=explain_mode)
         print(f"    [Databend] Executing: {q[:70]}...")
         try:
-            tmp = _execute_databend_sql(host, port, database, q, secure=False)
+            tmp = execute_databend_sql(host, port, database, q, secure=False)
             ret.append(tmp)
         except Exception as e:
             print(f"    [Databend] Error: {e}")
