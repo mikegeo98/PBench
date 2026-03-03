@@ -13,7 +13,9 @@ from .driver import BenchmarkDriver
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+SRC_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 from utils.prometheus import prometheus_queries
 
 def get_time():

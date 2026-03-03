@@ -11,9 +11,20 @@ import numpy as np
 from datetime import datetime
 import os, copy, time
 from openai import OpenAI
+import sys
+from pathlib import Path
 from urllib.parse import urlencode
 from databend_driver import BlockingDatabendClient
-from common.prometheus import prometheus_queries
+
+FILE_DIR = Path(__file__).resolve().parent
+COMMON_DIR = (FILE_DIR / "../../../common").resolve()
+COLLECT_METRICS_DIR = (FILE_DIR / "../../../Collect_metrics").resolve()
+if COMMON_DIR.exists() and str(COMMON_DIR) not in sys.path:
+    sys.path.insert(0, str(COMMON_DIR))
+if str(COLLECT_METRICS_DIR) not in sys.path:
+    sys.path.insert(0, str(COLLECT_METRICS_DIR))
+
+from prometheus import prometheus_queries
 
 
 

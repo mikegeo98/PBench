@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 
 # Make sure the repo's `src` directory is on the import path so we can reuse utils.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.prometheus import prometheus_queries
 

@@ -1,13 +1,21 @@
 import os
 
 import sys
+from pathlib import Path
 import subprocess
 import time
 import func_timeout
 
 os.environ["http_proxy"] = "http://localhost:7890"
 os.environ["https_proxy"] = "http://localhost:7890"
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
+FILE_DIR = Path(__file__).resolve().parent
+COMMON_DIR = (FILE_DIR / "../../../common").resolve()
+COLLECT_METRICS_DIR = (FILE_DIR / "../../../Collect_metrics").resolve()
+if COMMON_DIR.exists() and str(COMMON_DIR) not in sys.path:
+    sys.path.insert(0, str(COMMON_DIR))
+if str(COLLECT_METRICS_DIR) not in sys.path:
+    sys.path.insert(0, str(COLLECT_METRICS_DIR))
+
 from sys import api_version
 from dotenv import load_dotenv
 import pandas as pd
@@ -19,8 +27,6 @@ import os, copy, time
 from openai import OpenAI
 from databend_driver import BlockingDatabendClient
 
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../Collect_metrics"))
 from prometheus import prometheus_queries
 
 def get_time():
