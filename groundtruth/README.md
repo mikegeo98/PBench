@@ -63,6 +63,94 @@ python groundtruth/create_aggregate_trace.py \
   --output groundtruth/output/demo-databend-seq/workload_redset_120s_60s_10s.csv
 ```
 
+## Consume In PBench
+
+After generating aggregate CSVs, place them where `src/PBench-tool` expects workloads and create a matching config directory.
+
+### 1) Copy workload CSV
+
+Snowset-style:
+
+```bash
+cp groundtruth/output/demo-databend-seq/workload_snowset_120s_60s_10s.csv \
+  src/Workloads/Snowset/workload_gt_tpch_seq_120s.csv
+```
+
+Redset-style:
+
+```bash
+cp groundtruth/output/demo-databend-seq/workload_redset_120s_60s_10s.csv \
+  src/Workloads/Redset/workload_gt_tpch_seq_120s.csv
+```
+
+### 2) Ensure query metrics JSON exists for selected query pool/database
+
+For TPCH + `tpch1g`, `run_pbench.py` expects:
+
+```text
+src/Collect_metrics/metrics_witho/output/TPCH-tpch1g-sql-metrics.json
+```
+
+If missing, generate with:
+
+```bash
+cd src/Collect_metrics
+python collect.py tpch --databend --repeat 3 --prometheus-wait-seconds 2.0
+```
+
+### 3) Create a PBench config directory
+
+Example (Snowset workload, TPCH-only synthesis):
+
+```bash
+mkdir -p src/PBench-tool/configs/groundtruth/workload_gt_tpch_seq_120s
+```
+
+Create file `src/PBench-tool/configs/groundtruth/workload_gt_tpch_seq_120s/llm-queryset-witho.yml`:
+
+```yaml
+workload_path: ../../src/Workloads/Snowset/workload_gt_tpch_seq_120s.csv
+workload_name: workload_gt_tpch_seq_120s
+host: localhost
+databend_port: 8000
+prometheus_port: 9091
+count_limit: 1000
+time_limit: 270
+use_operator: 1
+wait: 8
+interval: 30
+query:
+- TPCH
+db:
+- tpch1g
+op_scale: 100
+initial_count: 10
+use_duration: 0
+```
+
+Notes:
+
+1. `workload_path` is resolved from `src/PBench-tool`.
+2. `query` + `db` entries must align with available metrics JSON names.
+3. For Redset CSV, set `workload_path` to `../../src/Workloads/Redset/<file>.csv`.
+
+### 4) Run PBench with that config directory
+
+```bash
+cd src/PBench-tool
+python run_pbench.py --config-dir configs/groundtruth
+```
+
+Outputs are written under:
+
+```text
+src/PBench-tool/output/plan/<workload_name>/
+src/PBench-tool/output/sa_plan/<workload_name>/
+src/PBench-tool/output/replay_ta/<workload_name>/
+```
+
+If you want details on config semantics and output files, see [`src/PBench-tool/README.md`](../src/PBench-tool/README.md).
+
 ## Config Notes
 
 - `engine.host` / `engine.port`: Databend endpoint.
@@ -104,3 +192,4 @@ For a ~100-120 second TPCH run:
 3. Empty/mostly-zero aggregates: bucket/window too coarse for short runs.
 4. Prometheus errors: endpoint/port mismatch (common default is `9091` in this repo).
 5. Query pools missing/stale: regenerate with `src/Collect_metrics/convert_queries.py`.
+6. `run_pbench.py` fails with missing metrics JSON: verify `query`/`db` pairs map to existing files in `src/Collect_metrics/metrics_witho/output/`.
