@@ -139,7 +139,7 @@ def main() -> None:
 
     script_dir = Path(__file__).resolve().parent
     data_dir = script_dir / "tpch-data" / f"sf{scale}"
-    api_url = f"http://{host}:{port}/?output_format=psql"
+    api_url = f"http://{host}:{port}/?output_format=psql&database={database}"
 
     print("TPC-H Firebolt-Core Data Loader")
     print("========================================")
@@ -149,13 +149,7 @@ def main() -> None:
     print(f"Data dir: {data_dir}")
     print("========================================")
 
-    if not (data_dir / "lineitem.tbl").exists():
-        die(
-            f"\nERROR: TPC-H data files not found in {data_dir}\n"
-            f"Please generate data first using:\n"
-            f"  ./load_tpch_dbgen.sh {scale} databend_db\n\n"
-            "This will create .tbl files that can be loaded into Firebolt-Core."
-        )
+    # Note: local file check removed — COPY loads from S3 (MinIO), not local files
 
     print("\nStep 1: Creating database...")
     run_sql(api_url, f"CREATE DATABASE IF NOT EXISTS {database};")
@@ -167,12 +161,7 @@ def main() -> None:
 
     print("\nStep 3: Loading data...")
     for table in TABLES:
-        tbl_file = data_dir / f"{table}.tbl"
-        if not tbl_file.exists():
-            print(f"  {table}: SKIPPED (file not found)")
-            continue
-
-        print(f"  {table} ({human_size(tbl_file)})... ", end="", flush=True)
+        print(f"  {table}... ", end="", flush=True)
         start = time.time()
         run_sql(api_url, f"COPY {table} FROM 's3://tpch/sf{scale}/{table}.tbl' WITH(CREDENTIALS=(AWS_ACCESS_KEY_ID ='minioadmin',AWS_SECRET_ACCESS_KEY = 'minioadmin'),HEADER = FALSE, TYPE = csv, DELIMITER='|');")
         elapsed = time.time() - start

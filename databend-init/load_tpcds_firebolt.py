@@ -172,8 +172,8 @@ CREATE_STATEMENTS = [
     i_rec_start_date DATE,
     i_rec_end_date DATE,
     i_item_desc VARCHAR(200),
-    i_current_price DECIMAL(7,2),
-    i_wholesale_cost DECIMAL(7,2),
+    i_current_price DECIMAL(15,2),
+    i_wholesale_cost DECIMAL(15,2),
     i_brand_id INTEGER,
     i_brand VARCHAR(50),
     i_class_id INTEGER,
@@ -365,18 +365,18 @@ CREATE_STATEMENTS = [
     ss_promo_sk INTEGER,
     ss_ticket_number BIGINT NOT NULL,
     ss_quantity INTEGER,
-    ss_wholesale_cost DECIMAL(7,2),
-    ss_list_price DECIMAL(7,2),
-    ss_sales_price DECIMAL(7,2),
-    ss_ext_discount_amt DECIMAL(7,2),
-    ss_ext_sales_price DECIMAL(7,2),
-    ss_ext_wholesale_cost DECIMAL(7,2),
-    ss_ext_list_price DECIMAL(7,2),
-    ss_ext_tax DECIMAL(7,2),
-    ss_coupon_amt DECIMAL(7,2),
-    ss_net_paid DECIMAL(7,2),
-    ss_net_paid_inc_tax DECIMAL(7,2),
-    ss_net_profit DECIMAL(7,2)
+    ss_wholesale_cost DECIMAL(15,2),
+    ss_list_price DECIMAL(15,2),
+    ss_sales_price DECIMAL(15,2),
+    ss_ext_discount_amt DECIMAL(15,2),
+    ss_ext_sales_price DECIMAL(15,2),
+    ss_ext_wholesale_cost DECIMAL(15,2),
+    ss_ext_list_price DECIMAL(15,2),
+    ss_ext_tax DECIMAL(15,2),
+    ss_coupon_amt DECIMAL(15,2),
+    ss_net_paid DECIMAL(15,2),
+    ss_net_paid_inc_tax DECIMAL(15,2),
+    ss_net_profit DECIMAL(15,2)
 );""",
 """CREATE TABLE store_returns (
     sr_returned_date_sk INTEGER,
@@ -390,15 +390,15 @@ CREATE_STATEMENTS = [
     sr_reason_sk INTEGER,
     sr_ticket_number BIGINT NOT NULL,
     sr_return_quantity INTEGER,
-    sr_return_amt DECIMAL(7,2),
-    sr_return_tax DECIMAL(7,2),
-    sr_return_amt_inc_tax DECIMAL(7,2),
-    sr_fee DECIMAL(7,2),
-    sr_return_ship_cost DECIMAL(7,2),
-    sr_refunded_cash DECIMAL(7,2),
-    sr_reversed_charge DECIMAL(7,2),
-    sr_store_credit DECIMAL(7,2),
-    sr_net_loss DECIMAL(7,2)
+    sr_return_amt DECIMAL(15,2),
+    sr_return_tax DECIMAL(15,2),
+    sr_return_amt_inc_tax DECIMAL(15,2),
+    sr_fee DECIMAL(15,2),
+    sr_return_ship_cost DECIMAL(15,2),
+    sr_refunded_cash DECIMAL(15,2),
+    sr_reversed_charge DECIMAL(15,2),
+    sr_store_credit DECIMAL(15,2),
+    sr_net_loss DECIMAL(15,2)
 );""",
 """CREATE TABLE catalog_sales (
     cs_sold_date_sk INTEGER,
@@ -420,21 +420,21 @@ CREATE_STATEMENTS = [
     cs_promo_sk INTEGER,
     cs_order_number BIGINT NOT NULL,
     cs_quantity INTEGER,
-    cs_wholesale_cost DECIMAL(7,2),
-    cs_list_price DECIMAL(7,2),
-    cs_sales_price DECIMAL(7,2),
-    cs_ext_discount_amt DECIMAL(7,2),
-    cs_ext_sales_price DECIMAL(7,2),
-    cs_ext_wholesale_cost DECIMAL(7,2),
-    cs_ext_list_price DECIMAL(7,2),
-    cs_ext_tax DECIMAL(7,2),
-    cs_coupon_amt DECIMAL(7,2),
-    cs_ext_ship_cost DECIMAL(7,2),
-    cs_net_paid DECIMAL(7,2),
-    cs_net_paid_inc_tax DECIMAL(7,2),
-    cs_net_paid_inc_ship DECIMAL(7,2),
-    cs_net_paid_inc_ship_tax DECIMAL(7,2),
-    cs_net_profit DECIMAL(7,2)
+    cs_wholesale_cost DECIMAL(15,2),
+    cs_list_price DECIMAL(15,2),
+    cs_sales_price DECIMAL(15,2),
+    cs_ext_discount_amt DECIMAL(15,2),
+    cs_ext_sales_price DECIMAL(15,2),
+    cs_ext_wholesale_cost DECIMAL(15,2),
+    cs_ext_list_price DECIMAL(15,2),
+    cs_ext_tax DECIMAL(15,2),
+    cs_coupon_amt DECIMAL(15,2),
+    cs_ext_ship_cost DECIMAL(15,2),
+    cs_net_paid DECIMAL(15,2),
+    cs_net_paid_inc_tax DECIMAL(15,2),
+    cs_net_paid_inc_ship DECIMAL(15,2),
+    cs_net_paid_inc_ship_tax DECIMAL(15,2),
+    cs_net_profit DECIMAL(15,2)
 );""",
 """CREATE TABLE catalog_returns (
     cr_returned_date_sk INTEGER,
@@ -455,15 +455,15 @@ CREATE_STATEMENTS = [
     cr_reason_sk INTEGER,
     cr_order_number BIGINT NOT NULL,
     cr_return_quantity INTEGER,
-    cr_return_amount DECIMAL(7,2),
-    cr_return_tax DECIMAL(7,2),
-    cr_return_amt_inc_tax DECIMAL(7,2),
-    cr_fee DECIMAL(7,2),
-    cr_return_ship_cost DECIMAL(7,2),
-    cr_refunded_cash DECIMAL(7,2),
-    cr_reversed_charge DECIMAL(7,2),
-    cr_store_credit DECIMAL(7,2),
-    cr_net_loss DECIMAL(7,2)
+    cr_return_amount DECIMAL(15,2),
+    cr_return_tax DECIMAL(15,2),
+    cr_return_amt_inc_tax DECIMAL(15,2),
+    cr_fee DECIMAL(15,2),
+    cr_return_ship_cost DECIMAL(15,2),
+    cr_refunded_cash DECIMAL(15,2),
+    cr_reversed_charge DECIMAL(15,2),
+    cr_store_credit DECIMAL(15,2),
+    cr_net_loss DECIMAL(15,2)
 );""",
 """CREATE TABLE web_sales (
     ws_sold_date_sk INTEGER,
@@ -485,21 +485,21 @@ CREATE_STATEMENTS = [
     ws_promo_sk INTEGER,
     ws_order_number BIGINT NOT NULL,
     ws_quantity INTEGER,
-    ws_wholesale_cost DECIMAL(7,2),
-    ws_list_price DECIMAL(7,2),
-    ws_sales_price DECIMAL(7,2),
-    ws_ext_discount_amt DECIMAL(7,2),
-    ws_ext_sales_price DECIMAL(7,2),
-    ws_ext_wholesale_cost DECIMAL(7,2),
-    ws_ext_list_price DECIMAL(7,2),
-    ws_ext_tax DECIMAL(7,2),
-    ws_coupon_amt DECIMAL(7,2),
-    ws_ext_ship_cost DECIMAL(7,2),
-    ws_net_paid DECIMAL(7,2),
-    ws_net_paid_inc_tax DECIMAL(7,2),
-    ws_net_paid_inc_ship DECIMAL(7,2),
-    ws_net_paid_inc_ship_tax DECIMAL(7,2),
-    ws_net_profit DECIMAL(7,2)
+    ws_wholesale_cost DECIMAL(15,2),
+    ws_list_price DECIMAL(15,2),
+    ws_sales_price DECIMAL(15,2),
+    ws_ext_discount_amt DECIMAL(15,2),
+    ws_ext_sales_price DECIMAL(15,2),
+    ws_ext_wholesale_cost DECIMAL(15,2),
+    ws_ext_list_price DECIMAL(15,2),
+    ws_ext_tax DECIMAL(15,2),
+    ws_coupon_amt DECIMAL(15,2),
+    ws_ext_ship_cost DECIMAL(15,2),
+    ws_net_paid DECIMAL(15,2),
+    ws_net_paid_inc_tax DECIMAL(15,2),
+    ws_net_paid_inc_ship DECIMAL(15,2),
+    ws_net_paid_inc_ship_tax DECIMAL(15,2),
+    ws_net_profit DECIMAL(15,2)
 );""",
 """CREATE TABLE web_returns (
     wr_returned_date_sk INTEGER,
@@ -517,15 +517,15 @@ CREATE_STATEMENTS = [
     wr_reason_sk INTEGER,
     wr_order_number BIGINT NOT NULL,
     wr_return_quantity INTEGER,
-    wr_return_amt DECIMAL(7,2),
-    wr_return_tax DECIMAL(7,2),
-    wr_return_amt_inc_tax DECIMAL(7,2),
-    wr_fee DECIMAL(7,2),
-    wr_return_ship_cost DECIMAL(7,2),
-    wr_refunded_cash DECIMAL(7,2),
-    wr_reversed_charge DECIMAL(7,2),
-    wr_account_credit DECIMAL(7,2),
-    wr_net_loss DECIMAL(7,2)
+    wr_return_amt DECIMAL(15,2),
+    wr_return_tax DECIMAL(15,2),
+    wr_return_amt_inc_tax DECIMAL(15,2),
+    wr_fee DECIMAL(15,2),
+    wr_return_ship_cost DECIMAL(15,2),
+    wr_refunded_cash DECIMAL(15,2),
+    wr_reversed_charge DECIMAL(15,2),
+    wr_account_credit DECIMAL(15,2),
+    wr_net_loss DECIMAL(15,2)
 );"""
 ]
 
@@ -596,7 +596,7 @@ def main() -> None:
 
     script_dir = Path(__file__).resolve().parent
     data_dir = script_dir / "tpcds-data" / f"sf{scale}"
-    api_url = f"http://{host}:{port}/?output_format=psql"
+    api_url = f"http://{host}:{port}/?output_format=psql&database={database}"
 
     print("TPC-DS Firebolt-Core Data Loader")
     print("========================================")
@@ -606,13 +606,7 @@ def main() -> None:
     print(f"Data dir: {data_dir}")
     print("========================================")
 
-    if not (data_dir / "call_center.dat").exists():
-        die(
-            f"\nERROR: TPC-DS data files not found in {data_dir}\n"
-            f"Please generate data first using:\n"
-            f"  ./load_tpcds_dbgen.sh {scale} databend_db\n\n"
-            "This will create .dat files that can be loaded into Firebolt-Core."
-        )
+    # Note: local file check removed — COPY loads from S3 (MinIO), not local files
 
     print("\nStep 1: Creating database...")
     run_sql(api_url, f"CREATE DATABASE IF NOT EXISTS {database};")

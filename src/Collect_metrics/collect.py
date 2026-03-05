@@ -7,6 +7,9 @@ from pathlib import Path
 from datetime import datetime
 import sys
 
+import requests as http_requests
+
+from databend_py import Client
 from dotenv import load_dotenv
 
 # Make sure the repo's `src` directory is on the import path so we can reuse utils.
@@ -45,6 +48,7 @@ BENCHMARKS = {
         "input": "./metrics_witho/input/TPCH-tpch1g-sql-input.json",
         "input_postgres": "./metrics_witho/input/TPCH-tpch1g-sql-input-standard.json",
         "input_duckdb": "./metrics_witho/input/TPCH-tpch1g-sql-input-standard.json",
+        "input_firebolt": "./metrics_witho/input/TPCH-tpch1g-sql-input-standard.json",
         "output": "./metrics_witho/output/TPCH-tpch1g-sql-metrics.json",
         "description": "TPC-H benchmark (22 queries)"
     },
@@ -59,6 +63,7 @@ BENCHMARKS = {
         "input": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input.json",
         "input_postgres": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input-postgres.json",
         "input_duckdb": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input-duckdb.json",
+        "input_firebolt": "./metrics_witho/input/tpcds_all-tpcds1g-sql-input-postgres.json",
         "output": "./metrics_witho/output/tpcds_all-tpcds1g-sql-metrics.json",
         "description": "TPC-DS benchmark"
     },
@@ -75,6 +80,37 @@ BENCHMARKS = {
         "input_duckdb":   "./metrics_witho/input/redbench-imdb-sql-input-duckdb.json",
         "output":         "./metrics_witho/output/redbench-imdb-sql-metrics.json",
         "description": "Redbench benchmark (JOB + sampled CEB on imdb database)"
+    },
+    "tpch10g": {
+        "input": "./metrics_witho/input/TPCH-tpch10g-sql-input.json",
+        "output": "./metrics_witho/output/TPCH-tpch10g-sql-metrics.json",
+        "description": "TPC-H benchmark SF10 (22 queries on tpch10g)"
+    },
+    "tpcds10g": {
+        "input": "./metrics_witho/input/tpcds_all-tpcds10g-sql-input.json",
+        "output": "./metrics_witho/output/tpcds_all-tpcds10g-sql-metrics.json",
+        "description": "TPC-DS benchmark SF10 (99 queries on tpcds10g)"
+    },
+    "tpch100g": {
+        "input": "./metrics_witho/input/TPCH-tpch100g-sql-input.json",
+        "output": "./metrics_witho/output/TPCH-tpch100g-sql-metrics.json",
+        "description": "TPC-H benchmark SF100 (22 queries on tpch100g)"
+    },
+    "tpch20": {
+        "input": "./metrics_witho/input/TPCH-tpch20g-sql-input.json",
+        "input_postgres": "./metrics_witho/input/TPCH-tpch20g-sql-input-standard.json",
+        "input_duckdb": "./metrics_witho/input/TPCH-tpch20g-sql-input-standard.json",
+        "input_firebolt": "./metrics_witho/input/TPCH-tpch20g-sql-input-standard.json",
+        "output": "./metrics_witho/output/TPCH-tpch20g-sql-metrics.json",
+        "description": "TPC-H benchmark SF20 (22 queries)"
+    },
+    "tpcds20": {
+        "input": "./metrics_witho/input/tpcds_all-tpcds20g-sql-input.json",
+        "input_postgres": "./metrics_witho/input/tpcds_all-tpcds20g-sql-input-postgres.json",
+        "input_duckdb": "./metrics_witho/input/tpcds_all-tpcds20g-sql-input-postgres.json",
+        "input_firebolt": "./metrics_witho/input/tpcds_all-tpcds20g-sql-input-postgres.json",
+        "output": "./metrics_witho/output/tpcds_all-tpcds20g-sql-metrics.json",
+        "description": "TPC-DS benchmark SF20 (99 queries)"
     }
 }
 
@@ -102,6 +138,9 @@ def load_config():
         "pg_database": os.getenv("PG_DATABASE", "postgres"),
         # DuckDB config
         "duckdb_path": os.getenv("DUCKDB_PATH", ":memory:"),
+        # Firebolt-Core config
+        "firebolt_host": os.getenv("FIREBOLT_HOST", "localhost"),
+        "firebolt_port": os.getenv("FIREBOLT_PORT", "3473"),
         # General
         "query": os.getenv("LP_QUERY_SET", "").split(","),
         "db": os.getenv("LP_DATABASE", "").split(","),
@@ -158,11 +197,10 @@ def execute_query_databend(host, port, query, database, explain_analyze=False):
     return ret
 
 
-def record_metrics_databend(host, databend_port, prometheus_port, query, database, scrape_wait_s=2.0):
+def record_metrics_databend(host, databend_port, prometheus_port, query, database):
     """ Record metrics from Databend using Prometheus. """
-    # Wait for a fresh Prometheus scrape before/after query execution.
-    # Keep this aligned with the Prometheus scrape interval (e.g. ~2s for 1s scrapes).
-    time.sleep(scrape_wait_s)
+    # Wait for fresh Prometheus scrape before starting (scrape interval is 5s)
+    time.sleep(6)
 
     start_time = get_time()
     print(f"  Start time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}")
@@ -176,7 +214,7 @@ def record_metrics_databend(host, databend_port, prometheus_port, query, databas
     query_duration = get_time() - query_start
 
     # Wait for Prometheus to scrape new metrics
-    time.sleep(scrape_wait_s)
+    time.sleep(6)
 
     end_time = get_time()
     print(f"  End time: {datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')}")
@@ -494,6 +532,119 @@ def record_operator_duckdb(config, query, database):
 
 
 # =============================================================================
+# Firebolt-Core Functions
+# =============================================================================
+
+def execute_query_firebolt(config, query, database):
+    """Execute query on Firebolt-Core via HTTP API."""
+    host = config["firebolt_host"]
+    port = config["firebolt_port"]
+    timeout = config.get("timeout_ms", 60000) / 1000  # Convert to seconds
+    api_url = f"http://{host}:{port}/?database={database}"
+    response = http_requests.post(api_url, data=query.encode("utf-8"), timeout=timeout)
+    if response.status_code >= 400:
+        raise RuntimeError(f"Firebolt error {response.status_code}: {response.text[:300]}")
+    return response.text.strip()
+
+
+def record_metrics_firebolt(config, query, database):
+    """
+    Record metrics from Firebolt-Core using engine_query_history.
+    Uses the Firebolt-Query-Id response header for reliable lookup.
+    Returns: (cpu_time_ms, data_scanned_bytes, duration_s)
+    """
+    import time as _time
+    try:
+        host = config["firebolt_host"]
+        port = config["firebolt_port"]
+        timeout = config.get("timeout_ms", 60000) / 1000
+        api_url = (
+            f"http://{host}:{port}/"
+            f"?database={database}&enable_subresult_cache=false"
+        )
+        stats_url = (
+            f"http://{host}:{port}/"
+            "?output_format=TabSeparatedWithNamesAndTypes"
+        )
+
+        start_time = get_time()
+        resp = http_requests.post(
+            api_url, data=query.encode("utf-8"), timeout=timeout
+        )
+        duration = get_time() - start_time
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"Firebolt error {resp.status_code}: "
+                f"{resp.text[:300]}"
+            )
+
+        query_id = resp.headers.get("Firebolt-Query-Id", "")
+
+        # Poll engine_query_history until the entry appears.
+        # Firebolt writes history asynchronously (~2-3s delay).
+        cpu_time_ms = 0.0
+        scanned_bytes = 0
+
+        if query_id:
+            stats_sql = (
+                "SELECT cpu_usage_us, scanned_bytes, duration_us "
+                "FROM information_schema.engine_query_history "
+                f"WHERE query_id = '{query_id}' "
+                "AND status = 'ENDED_SUCCESSFULLY';"
+            )
+            for attempt in range(15):
+                _time.sleep(1.0)
+                sr = http_requests.post(
+                    stats_url,
+                    data=stats_sql.encode("utf-8"),
+                    timeout=10,
+                )
+                lines = sr.text.strip().split("\n")
+                if len(lines) >= 3:
+                    vals = lines[2].split("\t")
+                    cpu_us = int(vals[0]) if vals[0] != "\\N" else 0
+                    scanned_bytes = (
+                        int(vals[1]) if vals[1] != "\\N" else 0
+                    )
+                    cpu_time_ms = cpu_us / 1000.0
+                    break
+
+        # Fallback: use wall-clock if no CPU data
+        if cpu_time_ms == 0:
+            cpu_time_ms = duration * 1000
+
+        print(
+            f"    [Firebolt] CPU: {cpu_time_ms:.2f}ms, "
+            f"Scan: {scanned_bytes / 1024 / 1024:.2f}MB, "
+            f"Wall: {duration * 1000:.2f}ms"
+        )
+        return cpu_time_ms, scanned_bytes, duration
+
+    except Exception as e:
+        print(f"    [Firebolt] Error: {e}")
+        return 0, 0, 0
+
+
+def record_operator_firebolt(config, query, database):
+    """Record the operators used in the query (Firebolt-Core)."""
+    operator_keywords = {
+        "filter": "Filter",
+        "join": "Join",
+        "agg": "Aggregate",
+        "sort": "Sort",
+    }
+    try:
+        plan_text = execute_query_firebolt(config, f"EXPLAIN {query}", database)
+        operator_flag = {}
+        for operator, keyword in operator_keywords.items():
+            operator_flag[operator] = 1 if keyword in plan_text else 0
+        return operator_flag
+    except Exception as e:
+        print(f"    [Firebolt] Error getting operators: {e}")
+        return {"filter": 0, "join": 0, "agg": 0, "sort": 0}
+
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -519,6 +670,7 @@ Database backends:
   --databend     Collect from Databend (default, uses Prometheus)
   --postgres     Collect from PostgreSQL (uses EXPLAIN ANALYZE BUFFERS)
   --duckdb       Collect from DuckDB (uses EXPLAIN ANALYZE)
+  --firebolt     Collect from Firebolt-Core (uses engine_query_history)
 
 Examples:
   # Databend only (default)
@@ -530,7 +682,10 @@ Examples:
   # DuckDB only
   python collect.py tpcds --no-databend --duckdb --duckdb-path ./tpcds1g.duckdb
 
-  # All three databases
+  # Firebolt-Core only
+  python collect.py tpch --no-databend --firebolt
+
+  # All databases
   python collect.py tpch --all --pg-database tpch1g --duckdb-path ./tpch1g.duckdb
         """
     )
@@ -573,6 +728,11 @@ Examples:
         help="Also collect metrics from DuckDB"
     )
     parser.add_argument(
+        "--firebolt",
+        action="store_true",
+        help="Also collect metrics from Firebolt-Core (uses engine_query_history)"
+    )
+    parser.add_argument(
         "--pg-database",
         type=str,
         default=None,
@@ -589,12 +749,6 @@ Examples:
         type=int,
         default=60,
         help="Query timeout in seconds (default: 60). Increase for slow queries."
-    )
-    parser.add_argument(
-        "--prometheus-wait-seconds",
-        type=float,
-        default=2.0,
-        help="Seconds to wait before/after Databend query to allow Prometheus scrapes (default: 2.0 for 1s scrape interval).",
     )
     parser.add_argument(
         "--all",
@@ -617,6 +771,7 @@ Examples:
     if args.all:
         args.postgres = True
         args.duckdb = True
+        args.firebolt = True
 
     # Override config from CLI args
     if args.pg_database:
@@ -625,16 +780,17 @@ Examples:
         config["duckdb_path"] = args.duckdb_path
     config["timeout_ms"] = args.timeout * 1000  # Convert seconds to ms
 
-    # If only --postgres or --duckdb is specified (without explicit --databend), disable Databend
-    # This allows "python collect.py tpch --duckdb" to run DuckDB only
+    # If only --postgres/--duckdb/--firebolt is specified (without explicit --databend), disable Databend
+    # This allows "python collect.py tpch --firebolt" to run Firebolt only
     explicit_databend = "--databend" in sys.argv
     use_databend = (args.databend and not args.no_databend and
-                    (explicit_databend or (not args.postgres and not args.duckdb)))
+                    (explicit_databend or (not args.postgres and not args.duckdb and not args.firebolt)))
 
     benchmark = BENCHMARKS[args.benchmark]
     src_databend = benchmark["input"]
     src_postgres = benchmark.get("input_postgres", benchmark["input"])
     src_duckdb = benchmark.get("input_duckdb", benchmark["input"])
+    src_firebolt = benchmark.get("input_firebolt", benchmark.get("input_postgres", benchmark["input"]))
     record_file = benchmark["output"]
     repeat = args.repeat
 
@@ -647,19 +803,20 @@ Examples:
         output_files["postgres"] = f"{base_output}-postgres.json"
     if args.duckdb:
         output_files["duckdb"] = f"{base_output}-duckdb.json"
+    if args.firebolt:
+        output_files["firebolt"] = f"{base_output}-firebolt.json"
 
     print(f"Benchmark: {args.benchmark.upper()} - {benchmark['description']}")
     print(f"Databases: {', '.join(output_files.keys())}")
     print(f"Repeat: {repeat}x per query")
     print(f"Timeout: {args.timeout}s per query")
-    if use_databend:
-        print(f"Prometheus wait: {args.prometheus_wait_seconds:.1f}s (before/after each Databend query)")
     print("=" * 60)
 
     # Load queries - different input files for different databases
     sql_statements_databend = None
     sql_statements_postgres = None
     sql_statements_duckdb = None
+    sql_statements_firebolt = None
 
     if use_databend:
         print(f"\nLoading Databend queries from: {src_databend}")
@@ -685,9 +842,19 @@ Examples:
             print(f"  Falling back to Databend input (queries may fail)")
             sql_statements_duckdb = load_query_from_json(src_databend)
 
-    # Use Databend queries as the iteration base, or postgres/duckdb if no Databend
+    if args.firebolt:
+        print(f"\nLoading Firebolt queries from: {src_firebolt}")
+        if os.path.exists(src_firebolt):
+            sql_statements_firebolt = load_query_from_json(src_firebolt)
+            print(f"Found {len(sql_statements_firebolt)} queries for Firebolt")
+        else:
+            print(f"  WARNING: Firebolt input file not found: {src_firebolt}")
+            print(f"  Falling back to Databend input (queries may fail)")
+            sql_statements_firebolt = load_query_from_json(src_databend)
+
+    # Use Databend queries as the iteration base, or others if no Databend
     sql_statements = (sql_statements_databend or sql_statements_postgres or
-                      sql_statements_duckdb)
+                      sql_statements_duckdb or sql_statements_firebolt)
     num_queries = len(sql_statements)
 
     # Initialize data storage for each database
@@ -721,6 +888,8 @@ Examples:
         postgres_query_with_db = None
         duckdb_query = None
         duckdb_query_with_db = None
+        firebolt_query = None
+        firebolt_query_with_db = None
         database = "unknown"
 
         if sql_statements_databend:
@@ -742,8 +911,15 @@ Examples:
             if database == "unknown":
                 database = db
 
-        # For display, prefer databend query, fall back to postgres/duckdb
-        display_query = databend_query or postgres_query or duckdb_query
+        if sql_statements_firebolt:
+            firebolt_sql = sql_statements_firebolt[idx]
+            firebolt_query_with_db = firebolt_sql["query"]
+            firebolt_query, db = firebolt_query_with_db.rsplit("@", 1)
+            if database == "unknown":
+                database = db
+
+        # For display, prefer databend query, fall back to others
+        display_query = databend_query or postgres_query or duckdb_query or firebolt_query
         print(f"\n[{idx + 1}/{num_queries}] Processing query on {database}...")
         print(f"  Query: {display_query[:80] if display_query else 'N/A'}...")
 
@@ -755,7 +931,7 @@ Examples:
                 print(f"    Run {run + 1}/{repeat}")
                 cputime, scan, duration = record_metrics_databend(
                     config["host"], config["databend_port"], config["prometheus_port"],
-                    databend_query, database, scrape_wait_s=args.prometheus_wait_seconds
+                    databend_query, database
                 )
                 total_cputime += cputime
                 total_scan += scan
@@ -830,6 +1006,35 @@ Examples:
                 **operators
             })
             save_data_to_file(data["duckdb"], output_files["duckdb"])
+
+        # ---- Firebolt-Core ----
+        if args.firebolt and firebolt_query:
+            print("  [Firebolt]")
+            total_cputime, total_scan, total_duration = 0, 0, 0
+            for run in range(repeat):
+                print(f"    Run {run + 1}/{repeat}")
+                cputime, scan, duration = record_metrics_firebolt(
+                    config, firebolt_query, database
+                )
+                total_cputime += cputime
+                total_scan += scan
+                total_duration += duration
+                print(f"      Duration: {duration:.3f}s, CPU: {cputime:.2f}ms, Scan: {scan:.0f}")
+
+            avg_cputime = total_cputime / repeat
+            avg_scan = total_scan / repeat
+            avg_duration = total_duration / repeat
+
+            operators = record_operator_firebolt(config, firebolt_query, database)
+
+            data["firebolt"].append({
+                "query": firebolt_query_with_db,
+                "avg_cpu_time": avg_cputime,
+                "avg_scan_bytes": avg_scan,
+                "avg_duration": avg_duration,
+                **operators
+            })
+            save_data_to_file(data["firebolt"], output_files["firebolt"])
 
     print(f"\n{'=' * 60}")
     print(f"Done! Collected metrics for {args.benchmark.upper()} queries")

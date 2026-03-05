@@ -155,7 +155,7 @@ def main() -> None:
 
     script_dir = Path(__file__).resolve().parent
     data_dir = script_dir / "job"
-    api_url = f"http://{host}:{port}/?output_format=psql"
+    api_url = f"http://{host}:{port}/?output_format=psql&database={database}"
 
     print("JOB Firebolt-Core Data Loader")
     print("========================================")

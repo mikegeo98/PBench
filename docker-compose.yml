@@ -8,13 +8,19 @@ services:
       - "3307:3307"  # ClickHouse handler port
       - "8080:8080"  # Admin API port
       - "7070:7070"  # Metrics API port
+    deploy:
+      resources:
+        limits:
+          memory: 20G
     environment:
       - QUERY_DEFAULT_USER=root
       - DATABEND_QUERY_FLIGHT_API_ADDRESS=0.0.0.0:9090
       - DATABEND_QUERY_ADMIN_API_ADDRESS=0.0.0.0:8080
       - DATABEND_QUERY_METRIC_API_ADDRESS=0.0.0.0:7070
+      - DATABEND_QUERY_MAX_MEMORY_USAGE=17179869184
     volumes:
       - databend-data:/var/lib/databend
+      - /home/mikeg/Documents/benchmark_data:/benchmark_data:ro
     networks:
       - pbench-network
     healthcheck:
