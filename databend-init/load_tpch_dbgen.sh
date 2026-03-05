@@ -65,6 +65,46 @@ generate_data() {
     ls -lh "${DATA_DIR}"/*.tbl 2>/dev/null || echo "  ERROR: No .tbl files found!"
 }
 
+# Step 1.5: Create database and tables if they don't exist
+create_database() {
+    echo ""
+    echo "Step 1.5: Creating database ${DATABASE} (if needed)..."
+
+    _run_sql() {
+        curl -s -u root: "http://${HOST}:${PORT}/v1/query/" \
+            -H "Content-Type: application/json" \
+            -d "{\"sql\": $(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$1")}" > /dev/null
+    }
+
+    _run_sql "CREATE DATABASE IF NOT EXISTS ${DATABASE}"
+
+    # Check if lineitem table already exists
+    EXISTS=$(curl -s -u root: "http://${HOST}:${PORT}/v1/query/" \
+        -H "Content-Type: application/json" \
+        -d "{\"sql\": \"SHOW TABLES FROM ${DATABASE} LIKE 'lineitem'\"}" | grep -c '"lineitem"' || true)
+
+    if [ "${EXISTS}" = "0" ]; then
+        echo "  Creating TPC-H tables in ${DATABASE}..."
+        # Check if tpch1g exists as a schema source
+        HAS_SRC=$(curl -s -u root: "http://${HOST}:${PORT}/v1/query/" \
+            -H "Content-Type: application/json" \
+            -d '{"sql": "SHOW TABLES FROM tpch1g LIKE '\''lineitem'\''"}' | grep -c '"lineitem"' || true)
+
+        if [ "${HAS_SRC}" != "0" ]; then
+            for t in region nation part supplier partsupp customer orders lineitem; do
+                _run_sql "CREATE TABLE IF NOT EXISTS ${DATABASE}.${t} LIKE tpch1g.${t}"
+            done
+            echo "  Tables cloned from tpch1g"
+        else
+            echo "  WARNING: tpch1g schema not found. Run 'docker compose up -d' first to create base schemas."
+            echo "  Alternatively, run: cd databend-init && python run_ddl.py"
+            exit 1
+        fi
+    else
+        echo "  Tables already exist"
+    fi
+}
+
 # Step 2: Load data into Databend
 load_data() {
     echo ""
@@ -170,6 +210,7 @@ verify_data() {
 # Main
 echo ""
 generate_data
+create_database
 load_data
 verify_data
 
