@@ -275,18 +275,13 @@ def convert_dat_to_parquet(dat_file: Path, table_name: str, output_dir: Path):
     # TPC-DS .dat files have a trailing | on each line
     db = duckdb.connect()
 
-    # Build the columns spec
-    cols_sql = ", ".join(
-        f"column{i:02d} {col_types[name]}" for i, (name, _) in enumerate(schema)
-    )
-
     num_cols = len(schema)
     # dsdgen adds trailing |, which creates an extra empty column
     # We read all columns + 1 dummy, then select only the real ones
     try:
         # Read with auto-detection disabled, explicit column count
         # The trailing | means there's an extra empty field at the end
-        select_cols = ", ".join(f"column{i:02d} AS {col_names[i]}" for i in range(num_cols))
+        select_cols = ", ".join(f"column{i} AS {col_names[i]}" for i in range(num_cols))
 
         db.execute(f"""
             COPY (
