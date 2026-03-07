@@ -86,7 +86,7 @@ CREATE_STATEMENTS = [
     cc_country VARCHAR(20),
     cc_gmt_offset DECIMAL(5,2),
     cc_tax_percentage DECIMAL(5,2)
-);""",
+) PRIMARY INDEX cc_call_center_sk;""",
 """CREATE TABLE catalog_page (
     cp_catalog_page_sk INTEGER NOT NULL,
     cp_catalog_page_id VARCHAR(16) NOT NULL,
@@ -97,7 +97,7 @@ CREATE_STATEMENTS = [
     cp_catalog_page_number INTEGER,
     cp_description VARCHAR(100),
     cp_type VARCHAR(100)
-);""",
+) PRIMARY INDEX cp_catalog_page_sk;""",
 """CREATE TABLE customer_address (
     ca_address_sk INTEGER NOT NULL,
     ca_address_id VARCHAR(16) NOT NULL,
@@ -112,7 +112,7 @@ CREATE_STATEMENTS = [
     ca_country VARCHAR(20),
     ca_gmt_offset DECIMAL(5,2),
     ca_location_type VARCHAR(20)
-);""",
+) PRIMARY INDEX ca_address_sk;""",
 """CREATE TABLE customer_demographics (
     cd_demo_sk INTEGER NOT NULL,
     cd_gender VARCHAR(1),
@@ -123,7 +123,7 @@ CREATE_STATEMENTS = [
     cd_dep_count INTEGER,
     cd_dep_employed_count INTEGER,
     cd_dep_college_count INTEGER
-);""",
+) PRIMARY INDEX cd_demo_sk;""",
 """CREATE TABLE date_dim (
     d_date_sk INTEGER NOT NULL,
     d_date_id VARCHAR(16) NOT NULL,
@@ -153,19 +153,19 @@ CREATE_STATEMENTS = [
     d_current_month VARCHAR(1),
     d_current_quarter VARCHAR(1),
     d_current_year VARCHAR(1)
-);""",
+) PRIMARY INDEX d_date_sk;""",
 """CREATE TABLE household_demographics (
     hd_demo_sk INTEGER NOT NULL,
     hd_income_band_sk INTEGER,
     hd_buy_potential VARCHAR(15),
     hd_dep_count INTEGER,
     hd_vehicle_count INTEGER
-);""",
+) PRIMARY INDEX hd_demo_sk;""",
 """CREATE TABLE income_band (
     ib_income_band_sk INTEGER NOT NULL,
     ib_lower_bound INTEGER,
     ib_upper_bound INTEGER
-);""",
+) PRIMARY INDEX ib_income_band_sk;""",
 """CREATE TABLE item (
     i_item_sk INTEGER NOT NULL,
     i_item_id VARCHAR(16) NOT NULL,
@@ -189,7 +189,7 @@ CREATE_STATEMENTS = [
     i_container VARCHAR(10),
     i_manager_id INTEGER,
     i_product_name VARCHAR(50)
-);""",
+) PRIMARY INDEX i_item_sk;""",
 """CREATE TABLE promotion (
     p_promo_sk INTEGER NOT NULL,
     p_promo_id VARCHAR(16) NOT NULL,
@@ -210,12 +210,12 @@ CREATE_STATEMENTS = [
     p_channel_details VARCHAR(100),
     p_purpose VARCHAR(15),
     p_discount_active VARCHAR(1)
-);""",
+) PRIMARY INDEX p_promo_sk;""",
 """CREATE TABLE reason (
     r_reason_sk INTEGER NOT NULL,
     r_reason_id VARCHAR(16) NOT NULL,
     r_reason_desc VARCHAR(100)
-);""",
+) PRIMARY INDEX r_reason_sk;""",
 """CREATE TABLE ship_mode (
     sm_ship_mode_sk INTEGER NOT NULL,
     sm_ship_mode_id VARCHAR(16) NOT NULL,
@@ -223,7 +223,7 @@ CREATE_STATEMENTS = [
     sm_code VARCHAR(10),
     sm_carrier VARCHAR(20),
     sm_contract VARCHAR(20)
-);""",
+) PRIMARY INDEX sm_ship_mode_sk;""",
 """CREATE TABLE store (
     s_store_sk INTEGER NOT NULL,
     s_store_id VARCHAR(16) NOT NULL,
@@ -254,7 +254,7 @@ CREATE_STATEMENTS = [
     s_country VARCHAR(20),
     s_gmt_offset DECIMAL(5,2),
     s_tax_precentage DECIMAL(5,2)
-);""",
+) PRIMARY INDEX s_store_sk;""",
 """CREATE TABLE time_dim (
     t_time_sk INTEGER NOT NULL,
     t_time_id VARCHAR(16) NOT NULL,
@@ -266,7 +266,7 @@ CREATE_STATEMENTS = [
     t_shift VARCHAR(20),
     t_sub_shift VARCHAR(20),
     t_meal_time VARCHAR(20)
-);""",
+) PRIMARY INDEX t_time_sk;""",
 """CREATE TABLE warehouse (
     w_warehouse_sk INTEGER NOT NULL,
     w_warehouse_id VARCHAR(16) NOT NULL,
@@ -282,7 +282,7 @@ CREATE_STATEMENTS = [
     w_zip VARCHAR(10),
     w_country VARCHAR(20),
     w_gmt_offset DECIMAL(5,2)
-);""",
+) PRIMARY INDEX w_warehouse_sk;""",
 """CREATE TABLE web_page (
     wp_web_page_sk INTEGER NOT NULL,
     wp_web_page_id VARCHAR(16) NOT NULL,
@@ -298,7 +298,7 @@ CREATE_STATEMENTS = [
     wp_link_count INTEGER,
     wp_image_count INTEGER,
     wp_max_ad_count INTEGER
-);""",
+) PRIMARY INDEX wp_web_page_sk;""",
 """CREATE TABLE web_site (
     web_site_sk INTEGER NOT NULL,
     web_site_id VARCHAR(16) NOT NULL,
@@ -326,7 +326,7 @@ CREATE_STATEMENTS = [
     web_country VARCHAR(20),
     web_gmt_offset DECIMAL(5,2),
     web_tax_percentage DECIMAL(5,2)
-);""",
+) PRIMARY INDEX web_site_sk;""",
 """CREATE TABLE customer (
     c_customer_sk INTEGER NOT NULL,
     c_customer_id VARCHAR(16) NOT NULL,
@@ -346,13 +346,13 @@ CREATE_STATEMENTS = [
     c_login VARCHAR(13),
     c_email_address VARCHAR(50),
     c_last_review_date_sk INTEGER
-);""",
+) PRIMARY INDEX c_customer_sk;""",
 """CREATE TABLE inventory (
     inv_date_sk INTEGER NOT NULL,
     inv_item_sk INTEGER NOT NULL,
     inv_warehouse_sk INTEGER NOT NULL,
     inv_quantity_on_hand INTEGER
-);""",
+) PRIMARY INDEX inv_date_sk, inv_item_sk, inv_warehouse_sk;""",
 """CREATE TABLE store_sales (
     ss_sold_date_sk INTEGER,
     ss_sold_time_sk INTEGER,
@@ -377,7 +377,7 @@ CREATE_STATEMENTS = [
     ss_net_paid DECIMAL(15,2),
     ss_net_paid_inc_tax DECIMAL(15,2),
     ss_net_profit DECIMAL(15,2)
-);""",
+) PRIMARY INDEX ss_item_sk, ss_ticket_number;""",
 """CREATE TABLE store_returns (
     sr_returned_date_sk INTEGER,
     sr_return_time_sk INTEGER,
@@ -399,7 +399,7 @@ CREATE_STATEMENTS = [
     sr_reversed_charge DECIMAL(15,2),
     sr_store_credit DECIMAL(15,2),
     sr_net_loss DECIMAL(15,2)
-);""",
+) PRIMARY INDEX sr_item_sk, sr_ticket_number;""",
 """CREATE TABLE catalog_sales (
     cs_sold_date_sk INTEGER,
     cs_sold_time_sk INTEGER,
@@ -435,7 +435,7 @@ CREATE_STATEMENTS = [
     cs_net_paid_inc_ship DECIMAL(15,2),
     cs_net_paid_inc_ship_tax DECIMAL(15,2),
     cs_net_profit DECIMAL(15,2)
-);""",
+) PRIMARY INDEX cs_item_sk, cs_order_number;""",
 """CREATE TABLE catalog_returns (
     cr_returned_date_sk INTEGER,
     cr_returned_time_sk INTEGER,
@@ -464,7 +464,7 @@ CREATE_STATEMENTS = [
     cr_reversed_charge DECIMAL(15,2),
     cr_store_credit DECIMAL(15,2),
     cr_net_loss DECIMAL(15,2)
-);""",
+) PRIMARY INDEX cr_item_sk, cr_order_number;""",
 """CREATE TABLE web_sales (
     ws_sold_date_sk INTEGER,
     ws_sold_time_sk INTEGER,
@@ -500,7 +500,7 @@ CREATE_STATEMENTS = [
     ws_net_paid_inc_ship DECIMAL(15,2),
     ws_net_paid_inc_ship_tax DECIMAL(15,2),
     ws_net_profit DECIMAL(15,2)
-);""",
+) PRIMARY INDEX ws_item_sk, ws_order_number;""",
 """CREATE TABLE web_returns (
     wr_returned_date_sk INTEGER,
     wr_returned_time_sk INTEGER,
@@ -526,7 +526,7 @@ CREATE_STATEMENTS = [
     wr_reversed_charge DECIMAL(15,2),
     wr_account_credit DECIMAL(15,2),
     wr_net_loss DECIMAL(15,2)
-);"""
+) PRIMARY INDEX wr_item_sk, wr_order_number;"""
 ]
 
 EXPECTED_SF1 = {

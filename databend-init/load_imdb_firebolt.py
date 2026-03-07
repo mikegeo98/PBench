@@ -24,7 +24,7 @@ import requests
 
 
 TABLES = {
-    "aka_name": "CREATE TABLE aka_name (id INTEGER NOT NULL,person_id INTEGER NOT NULL,name VARCHAR,imdb_index VARCHAR(12),name_pcode_cf VARCHAR(5),name_pcode_nf VARCHAR(5),surname_pcode VARCHAR(5),md5sum VARCHAR(32));", 
+    "aka_name": "CREATE TABLE aka_name (id INTEGER NOT NULL,person_id INTEGER NOT NULL,name VARCHAR,imdb_index VARCHAR(12),name_pcode_cf VARCHAR(5),name_pcode_nf VARCHAR(5),surname_pcode VARCHAR(5),md5sum VARCHAR(32)) PRIMARY INDEX id;", 
     "aka_title": """CREATE TABLE aka_title (
     id INTEGER NOT NULL,
     movie_id INTEGER NOT NULL,
@@ -38,7 +38,7 @@ TABLES = {
     episode_nr INTEGER,
     note VARCHAR,
     md5sum VARCHAR(32)
-);""", 
+) PRIMARY INDEX id;""", 
     "cast_info": """CREATE TABLE cast_info (
     id INTEGER NOT NULL,
     person_id INTEGER NOT NULL,
@@ -47,7 +47,7 @@ TABLES = {
     note VARCHAR,
     nr_order INTEGER,
     role_id INTEGER NOT NULL
-);""", 
+) PRIMARY INDEX id;""", 
     "char_name": """CREATE TABLE char_name (
     id INTEGER NOT NULL,
     name VARCHAR NOT NULL,
@@ -56,8 +56,8 @@ TABLES = {
     name_pcode_nf VARCHAR(5),
     surname_pcode VARCHAR(5),
     md5sum VARCHAR(32)
-);""", 
-    "comp_cast_type": "CREATE TABLE comp_cast_type (id INTEGER NOT NULL,kind VARCHAR(32) NOT NULL);", 
+) PRIMARY INDEX id;""", 
+    "comp_cast_type": "CREATE TABLE comp_cast_type (id INTEGER NOT NULL,kind VARCHAR(32) NOT NULL) PRIMARY INDEX id;", 
     "company_name": """CREATE TABLE company_name (
     id INTEGER NOT NULL,
     name VARCHAR NOT NULL,
@@ -66,28 +66,28 @@ TABLES = {
     name_pcode_nf VARCHAR(5),
     name_pcode_sf VARCHAR(5),
     md5sum VARCHAR(32)
-);""", 
-    "company_type": "CREATE TABLE company_type (id INTEGER NOT NULL,kind VARCHAR(32));", 
+) PRIMARY INDEX id;""", 
+    "company_type": "CREATE TABLE company_type (id INTEGER NOT NULL,kind VARCHAR(32)) PRIMARY INDEX id;", 
     "complete_cast": """CREATE TABLE complete_cast (
     id INTEGER NOT NULL,
     movie_id INTEGER,
     subject_id INTEGER NOT NULL,
     status_id INTEGER NOT NULL
-);""", 
-    "info_type": "CREATE TABLE info_type (id INTEGER NOT NULL,info VARCHAR(32) NOT NULL);", 
-    "keyword": "CREATE TABLE keyword (id INTEGER NOT NULL,keyword VARCHAR NOT NULL,phonetic_code VARCHAR(5));",
-    "kind_type": "CREATE TABLE kind_type (id INTEGER NOT NULL,kind VARCHAR(15));", 
-    "link_type": "CREATE TABLE link_type (id INTEGER NOT NULL,link VARCHAR(32) NOT NULL);", 
-    "movie_companies": "CREATE TABLE movie_companies (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,company_id INTEGER NOT NULL,company_type_id INTEGER NOT NULL,note VARCHAR);", 
-    "movie_info": "CREATE TABLE movie_info (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,info_type_id INTEGER NOT NULL,info VARCHAR NOT NULL,note VARCHAR);", 
-    "movie_info_idx": "CREATE TABLE movie_info_idx (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,info_type_id INTEGER NOT NULL,info VARCHAR NOT NULL,note VARCHAR(1));", 
-    "movie_keyword": "CREATE TABLE movie_keyword (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,keyword_id INTEGER NOT NULL);", 
+) PRIMARY INDEX id;""", 
+    "info_type": "CREATE TABLE info_type (id INTEGER NOT NULL,info VARCHAR(32) NOT NULL) PRIMARY INDEX id;", 
+    "keyword": "CREATE TABLE keyword (id INTEGER NOT NULL,keyword VARCHAR NOT NULL,phonetic_code VARCHAR(5)) PRIMARY INDEX id;",
+    "kind_type": "CREATE TABLE kind_type (id INTEGER NOT NULL,kind VARCHAR(15)) PRIMARY INDEX id;", 
+    "link_type": "CREATE TABLE link_type (id INTEGER NOT NULL,link VARCHAR(32) NOT NULL) PRIMARY INDEX id;", 
+    "movie_companies": "CREATE TABLE movie_companies (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,company_id INTEGER NOT NULL,company_type_id INTEGER NOT NULL,note VARCHAR) PRIMARY INDEX id;", 
+    "movie_info": "CREATE TABLE movie_info (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,info_type_id INTEGER NOT NULL,info VARCHAR NOT NULL,note VARCHAR) PRIMARY INDEX id;", 
+    "movie_info_idx": "CREATE TABLE movie_info_idx (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,info_type_id INTEGER NOT NULL,info VARCHAR NOT NULL,note VARCHAR(1)) PRIMARY INDEX id;", 
+    "movie_keyword": "CREATE TABLE movie_keyword (id INTEGER NOT NULL,movie_id INTEGER NOT NULL,keyword_id INTEGER NOT NULL) PRIMARY INDEX id;", 
     "movie_link": """CREATE TABLE movie_link (
     id INTEGER NOT NULL,
     movie_id INTEGER NOT NULL,
     linked_movie_id INTEGER NOT NULL,
     link_type_id INTEGER NOT NULL
-);""", 
+) PRIMARY INDEX id;""", 
     "name": """CREATE TABLE name (
     id INTEGER NOT NULL,
     name VARCHAR NOT NULL,
@@ -98,9 +98,9 @@ TABLES = {
     name_pcode_nf VARCHAR(5),
     surname_pcode VARCHAR(5),
     md5sum VARCHAR(32)
-);""", 
-    "person_info": "CREATE TABLE person_info (id INTEGER NOT NULL,person_id INTEGER NOT NULL,info_type_id INTEGER NOT NULL,info VARCHAR NOT NULL,note VARCHAR);",
-    "role_type": "CREATE TABLE role_type (id INTEGER NOT NULL,role VARCHAR(32) NOT NULL);", 
+) PRIMARY INDEX id;""", 
+    "person_info": "CREATE TABLE person_info (id INTEGER NOT NULL,person_id INTEGER NOT NULL,info_type_id INTEGER NOT NULL,info VARCHAR NOT NULL,note VARCHAR) PRIMARY INDEX id;",
+    "role_type": "CREATE TABLE role_type (id INTEGER NOT NULL,role VARCHAR(32) NOT NULL) PRIMARY INDEX id;", 
     "title": """CREATE TABLE title (
     id INTEGER NOT NULL,
     title VARCHAR NOT NULL,
@@ -114,7 +114,7 @@ TABLES = {
     episode_nr INTEGER,
     series_years VARCHAR(49),
     md5sum VARCHAR(32)
-);"""
+) PRIMARY INDEX id;"""
 }
 
 def die(msg: str, code: int = 1) -> None:
