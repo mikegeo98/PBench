@@ -21,17 +21,12 @@ key performance metrics and operator distributions, in real cloud workloads. To 
 
 # Environment
 
-Python 3.10 is required to run PBench. To set up the environment, follow the steps below:
+Python 3.10+ is required to run PBench. To set up the environment, follow the steps below:
 
-1. Install Python 3.10
+1. Create a virtual environment and install dependencies
 
-    ```
-    sudo apt-get install python3.10
-    ```
-
-2. Install required packages
-
-    ```
+    ```bash
+    python3 -m venv .venv && source .venv/bin/activate
     pip install -r requirements.txt
     ```
 

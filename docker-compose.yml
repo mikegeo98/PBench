@@ -18,6 +18,8 @@ services:
       - DATABEND_QUERY_ADMIN_API_ADDRESS=0.0.0.0:8080
       - DATABEND_QUERY_METRIC_API_ADDRESS=0.0.0.0:7070
       - DATABEND_QUERY_MAX_MEMORY_USAGE=17179869184
+      # Disable query result cache so Prometheus captures real metrics
+      - DATABEND_QUERY_ENABLE_QUERY_RESULT_CACHE=0
     volumes:
       - databend-data:/var/lib/databend
       - /home/mikeg/Documents/benchmark_data:/benchmark_data:ro

@@ -16,13 +16,20 @@ This document covers the full process to reproduce every analysis notebook in `s
 - **Instance type**: r5.xlarge or larger (4 vCPUs, 32 GB RAM recommended — Databend alone needs ~16 GB)
 - **Disk**: 100 GB+ gp3 (SF20 raw .tbl files ~22 GB, plus engine storage)
 - **OS**: Ubuntu 22.04+
-- **Software**: Docker, Docker Compose v2, Python 3.10+, PostgreSQL 14+, git, gcc, make
+- **Software**: Docker, Docker Compose v2, Python 3.10+ (system Python 3.12 works), PostgreSQL 14+, git, gcc, make
 
 ```bash
+# Install system packages
 sudo apt update && sudo apt install -y docker.io docker-compose-v2 \
-    python3.10 python3.10-venv python3-pip \
     postgresql postgresql-contrib \
     git gcc make bc curl
+
+# Install Python venv support (package name varies by Ubuntu version)
+sudo apt install -y python3-venv 2>/dev/null || sudo apt install -y python3.12-venv
+
+# Allow current user to run Docker without sudo
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
 ---
@@ -31,12 +38,13 @@ sudo apt update && sudo apt install -y docker.io docker-compose-v2 \
 
 ```bash
 git clone <repository-url> && cd PBench
+git checkout query_pool
 
 # Option A: uv (faster)
 uv sync
 
 # Option B: venv + pip
-python3.10 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -72,8 +80,11 @@ MinIO provides S3-compatible storage that Firebolt-Core reads from via COPY.
 wget https://dl.min.io/server/minio/release/linux-amd64/minio
 chmod +x minio
 
-# Start MinIO (use a dedicated data dir)
-mkdir -p /home/shared
+# Create data dir (needs sudo since /home/ is root-owned)
+sudo mkdir -p /home/shared
+sudo chown $USER:$USER /home/shared
+
+# Start MinIO
 ./minio server /home/shared &
 
 # Install mc (MinIO client)

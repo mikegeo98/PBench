@@ -6,7 +6,7 @@ This guide explains how to set up and run PBench for database workload synthesis
 
 ## Prerequisites
 
-- Python 3.10 (required)
+- Python 3.10+ (required)
 - Docker and Docker Compose
 - Git
 - PostgreSQL 12+ (optional, for multi-database metrics collection)
@@ -26,7 +26,7 @@ cd PBench
 # Use uv
 uv sync
 # or standard venv
-python3.10 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate  # On Linux/Mac, or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
