@@ -90,10 +90,13 @@ def main():
         print(f"  Q{idx+1} x{count}: cpu={q['avg_cpu_time']:.1f}s scan={q['avg_scan_bytes']/1e9:.3f}GB dur={q['avg_duration']:.3f}s")
 
     # Prometheus snapshot before (may fail if Prometheus is down)
-    cpu_before = prom_query(
-        args.prom_url, "databend_query_duration_ms_sum") / 1000.0
-    scan_before = prom_query(
-        args.prom_url, "databend_query_scan_bytes_sum")
+    # Use the same metrics as collect.py:
+    #   CPU:  databend_process_cpu_seconds_total_total (process-level)
+    #   Scan: databend_query_scan_bytes_total{kind="Query"}
+    cpu_metric = "sum(databend_process_cpu_seconds_total_total)"
+    scan_metric = 'sum(databend_query_scan_bytes_total{kind="Query"})'
+    cpu_before = prom_query(args.prom_url, cpu_metric)
+    scan_before = prom_query(args.prom_url, scan_metric)
     prom_available = cpu_before > 0 or scan_before > 0
 
     # Execute
@@ -127,10 +130,8 @@ def main():
     if prom_available:
         print("Waiting 12s for Prometheus scrape...")
         time.sleep(12)
-    cpu_after = prom_query(
-        args.prom_url, "databend_query_duration_ms_sum") / 1000.0
-    scan_after = prom_query(
-        args.prom_url, "databend_query_scan_bytes_sum")
+    cpu_after = prom_query(args.prom_url, cpu_metric)
+    scan_after = prom_query(args.prom_url, scan_metric)
 
     total_cpu = cpu_after - cpu_before
     total_scan_bytes = scan_after - scan_before
