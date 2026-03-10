@@ -524,3 +524,192 @@ curl -sf http://localhost:9000/minio/health/live && echo "MinIO OK"
 | **Total** | **~110 GB** |
 
 You can delete the raw `.tbl`/`.dat` files after loading into all engines to reclaim ~43 GB.
+
+---
+
+## Experiment 5: ILP Workload Recovery (Ground Truth Matching)
+
+**Goal**: Run a known mix of TPC-H queries against Databend, collect aggregate telemetry, then feed that telemetry to PBench's ILP solver to see if it can reconstruct the original query mix.
+
+This tests PBench's core capability: given only aggregate statistics (total CPU, total scan bytes, average duration, operator ratios), can it reverse-engineer which queries produced them?
+
+The workload can be run sequentially (simplest, most deterministic telemetry) or concurrently (more realistic, but noisier metrics).
+
+### Prerequisites
+
+- Databend running with TPC-H SF20 loaded into `tpch20g`
+- Prometheus scraping Databend metrics on port 9091
+- SF20 query metrics collected: `metrics_witho/output/TPCH-tpch20g-sql-metrics.json`
+
+If you don't have SF20 metrics yet:
+```bash
+cd src/Collect_metrics
+python collect.py tpch20 --repeat 3 --timeout 300
+```
+
+### Step 1: Define a Secret Query Mix
+
+Create a file `experiments/ground_truth_mix.json` with a query mix to test. Each key is a 0-based query index (Q1=0, Q2=1, ..., Q22=21) and the value is the execution count.
+
+Example mixes of increasing difficulty:
+
+**Easy** — few distinct queries, different operator signatures:
+```json
+{
+    "name": "easy",
+    "description": "3 distinct queries, clear signatures",
+    "mix": {"0": 5, "8": 3, "5": 2},
+    "comment": "Q1(filter+agg+sort) x5, Q9(all ops) x3, Q6(filter+agg only) x2"
+}
+```
+
+**Medium** — more queries, some with similar profiles:
+```json
+{
+    "name": "medium",
+    "description": "5 distinct queries including similar-profile pairs",
+    "mix": {"0": 3, "8": 2, "12": 1, "17": 2, "20": 1},
+    "comment": "Q1 x3, Q9 x2, Q13 x1, Q18 x2, Q21 x1 — Q9/Q18 both have all operators"
+}
+```
+
+**Hard** — many queries with overlapping signatures:
+```json
+{
+    "name": "hard",
+    "description": "8 distinct queries, overlapping operator profiles",
+    "mix": {"0": 2, "2": 1, "4": 2, "6": 1, "8": 3, "9": 1, "14": 2, "17": 1},
+    "comment": "Most queries have all 4 operators — ILP must rely on CPU/scan/duration differences"
+}
+```
+
+Alternatively, you can skip writing a mix JSON and use existing workload generation:
+
+- **Groundtruth sequential run**: Use `groundtruth/run_bench.py` with a query pool config
+  to run queries sequentially. The per-query telemetry is recorded via Prometheus, and you
+  can aggregate it into a single time-slot for ILP recovery.
+- **CAB baseline output**: Run CAB on a Snowset workload (`src/Baseline/do_baseline.py`),
+  take the output plan from `src/Baseline/output/`, and feed its aggregate telemetry
+  per time-slot to the recovery script.
+
+### Step 2: Run the Query Mix and Collect Telemetry
+
+**Option A — Sequential** (simplest, most deterministic — recommended for validation):
+
+```bash
+cd PBench
+source .venv/bin/activate
+python experiments/run_ground_truth.py \
+    --mix experiments/mixes/easy.json \
+    --metrics src/Collect_metrics/metrics_witho/output/TPCH-tpch20g-sql-metrics.json \
+    --database tpch20g \
+    --concurrency 1 \
+    --output experiments/results/
+```
+
+Sequential mode runs one query at a time, giving the cleanest Prometheus deltas (no
+overlapping counters) and the most deterministic telemetry. Best for validating the
+ILP solver works correctly.
+
+**Option B — Concurrent** (more realistic, noisier):
+
+```bash
+python experiments/run_ground_truth.py \
+    --mix experiments/mixes/medium.json \
+    --metrics src/Collect_metrics/metrics_witho/output/TPCH-tpch20g-sql-metrics.json \
+    --database tpch20g \
+    --concurrency 4 \
+    --output experiments/results/
+```
+
+The script:
+1. Reads the secret query mix
+2. Executes all queries against Databend (sequentially or concurrently)
+3. Collects Prometheus CPU/scan deltas and client-side durations
+4. Computes aggregate telemetry: total CPU, total scan bytes, average duration, operator ratios
+5. Saves observed telemetry to `experiments/results/<name>_telemetry.json`
+
+### Step 3: Run PBench ILP Recovery
+
+Run `experiments/recover_mix.py`:
+
+```bash
+python experiments/recover_mix.py \
+    --telemetry experiments/results/<name>_telemetry.json \
+    --metrics src/Collect_metrics/metrics_witho/output/TPCH-tpch20g-sql-metrics.json \
+    --secret experiments/ground_truth_mix.json \
+    --count-limit 30
+```
+
+The script:
+1. Loads the observed telemetry (what PBench sees)
+2. Builds a candidate pool from the SF20 metrics file
+3. Runs PBench's ILP solver (`solve_integer_linear_programming_cycle`)
+4. Compares the ILP solution against the secret ground truth
+5. Prints a comparison table and accuracy metrics
+
+### Expected Output
+
+```
+======================================================================
+PBENCH's GUESS vs GROUND TRUTH
+======================================================================
+
+Query     Truth  Guess  Match?   cpu(s)   scan(GB)   dur(s)
+-----------------------------------------------------------
+Q1            5      5       ✓    51.00     10.648    3.711
+Q6            2      2       ✓    10.00      0.049    0.856
+Q9            3      3       ✓   139.00      8.426   10.910
+
+Metric               Truth      Guess    Error
+------------------------------------------------
+CPU (s)             702.00     702.00     0.0%
+Scan (GB)            53.48      53.48     0.0%
+Count                   10         10
+
+Exact: 3/3, Close(±1): 0, Objective: 0.0000
+```
+
+### Step 4: Batch Evaluation
+
+To run all three difficulty levels and compare:
+
+```bash
+for mix in easy medium hard; do
+    python experiments/run_ground_truth.py \
+        --mix experiments/mixes/${mix}.json \
+        --metrics src/Collect_metrics/metrics_witho/output/TPCH-tpch20g-sql-metrics.json \
+        --database tpch20g \
+        --concurrency 4 \
+        --output experiments/results/
+
+    python experiments/recover_mix.py \
+        --telemetry experiments/results/${mix}_telemetry.json \
+        --metrics src/Collect_metrics/metrics_witho/output/TPCH-tpch20g-sql-metrics.json \
+        --secret experiments/mixes/${mix}.json \
+        --count-limit 30
+done
+```
+
+### Interpreting Results
+
+Key metrics to evaluate:
+
+| Metric | Meaning |
+|---|---|
+| **Exact matches** | Number of queries where ILP guessed the exact count |
+| **Close matches (±1)** | Queries where the count is off by 1 |
+| **Objective value** | ILP minimization objective — 0 means perfect fit |
+| **CPU/Scan error %** | How close the reconstructed aggregate telemetry is to observed |
+
+**Why SF20 matters**: SF1 metrics have poor granularity — Prometheus reports CPU in ~1s increments, making many queries indistinguishable. SF20 queries run 10-100x longer, giving much better metric separation. Compare Q6 at SF1 (cpu=1s, dur=0.012s) vs SF20 (cpu=10s, dur=0.856s).
+
+**When ILP struggles**: The solver has difficulty when:
+- Multiple queries have nearly identical metric profiles (e.g., Q7 and Q8 at SF20: both ~11s CPU, ~1s duration, all operators)
+- The count limit is too loose — the solver can split one Q9 execution into many small queries that sum to the same CPU
+- Operator ratios are uniform (most SF20 queries have all 4 operators = 1)
+
+**When ILP excels**: Recovery is most accurate when:
+- Queries span a wide range of CPU and scan values
+- Some queries have distinct operator signatures (e.g., Q6 has no join/sort)
+- The count hint (`initial_count`) is close to the actual number of executions
