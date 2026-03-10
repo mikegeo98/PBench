@@ -167,6 +167,9 @@ curl -s -u root: http://localhost:8000/v1/query/ \
 ```bash
 cd databend-init
 
+# Create a PostgreSQL role for the current user (one-time)
+sudo -u postgres createuser --superuser $USER
+
 # Requires .tbl files to already exist in tpch-data/sf20/
 ./load_tpch_postgres.sh 20 tpch20g
 ```

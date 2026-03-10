@@ -196,10 +196,17 @@ def run_experiment(args):
         print("         This is expected if PostgreSQL runs in Docker or on a remote host.")
     print()
 
+    # Filter to specific queries if requested
+    query_filter = None
+    if args.queries:
+        query_filter = set(int(q) - 1 for q in args.queries.split(","))
+
     total = len(queries) * args.rounds
     completed = len(done)
 
     for qi, sql in enumerate(queries):
+        if query_filter is not None and qi not in query_filter:
+            continue
         for rd in range(args.rounds):
             if (qi, rd) in done:
                 continue
@@ -237,6 +244,7 @@ def main():
     p.add_argument("--database", default="tpch20g", help="PostgreSQL database (default: tpch20g)")
     p.add_argument("--rounds", type=int, default=3, help="Repetitions per query (default: 3)")
     p.add_argument("--timeout", type=int, default=120, help="Per-query timeout in seconds (default: 120)")
+    p.add_argument("--queries", type=str, default=None, help="Comma-separated query numbers to run, e.g. '9,20'")
     args = p.parse_args()
 
     print("PostgreSQL CPU Collection — TPC-H SF20")
