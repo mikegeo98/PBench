@@ -21,10 +21,13 @@ import requests
 
 
 def prom_query(prom_url: str, query: str) -> float:
-    r = requests.get(f"{prom_url}/api/v1/query", params={"query": query})
-    data = r.json()
-    if data["status"] == "success" and data["data"]["result"]:
-        return float(data["data"]["result"][0]["value"][1])
+    try:
+        r = requests.get(f"{prom_url}/api/v1/query", params={"query": query}, timeout=5)
+        data = r.json()
+        if data["status"] == "success" and data["data"]["result"]:
+            return float(data["data"]["result"][0]["value"][1])
+    except Exception:
+        pass
     return 0.0
 
 
@@ -86,9 +89,12 @@ def main():
         q = all_queries[idx]
         print(f"  Q{idx+1} x{count}: cpu={q['avg_cpu_time']:.1f}s scan={q['avg_scan_bytes']/1e9:.3f}GB dur={q['avg_duration']:.3f}s")
 
-    # Prometheus snapshot before
-    cpu_before = prom_query(args.prom_url, "databend_query_duration_ms_sum") / 1000.0
-    scan_before = prom_query(args.prom_url, "databend_query_scan_bytes_sum")
+    # Prometheus snapshot before (may fail if Prometheus is down)
+    cpu_before = prom_query(
+        args.prom_url, "databend_query_duration_ms_sum") / 1000.0
+    scan_before = prom_query(
+        args.prom_url, "databend_query_scan_bytes_sum")
+    prom_available = cpu_before > 0 or scan_before > 0
 
     # Execute
     print(f"\nRunning {n} queries (concurrency={args.concurrency})...")
@@ -117,11 +123,14 @@ def main():
     ok_count = sum(1 for r in results if r["status"] == "ok")
     print(f"\nCompleted in {run_elapsed:.1f}s — {ok_count}/{n} succeeded")
 
-    # Prometheus snapshot after (wait for scrape)
-    print("Waiting 12s for Prometheus scrape...")
-    time.sleep(12)
-    cpu_after = prom_query(args.prom_url, "databend_query_duration_ms_sum") / 1000.0
-    scan_after = prom_query(args.prom_url, "databend_query_scan_bytes_sum")
+    # Prometheus snapshot after
+    if prom_available:
+        print("Waiting 12s for Prometheus scrape...")
+        time.sleep(12)
+    cpu_after = prom_query(
+        args.prom_url, "databend_query_duration_ms_sum") / 1000.0
+    scan_after = prom_query(
+        args.prom_url, "databend_query_scan_bytes_sum")
 
     total_cpu = cpu_after - cpu_before
     total_scan_bytes = scan_after - scan_before
