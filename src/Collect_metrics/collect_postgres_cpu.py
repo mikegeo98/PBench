@@ -174,12 +174,16 @@ def run_experiment(args):
     print(f"CLK_TCK: {CLK_TCK}")
     print()
 
-    # Resume
+    # Resume (skip when --queries is used: re-run those queries fresh)
     results = []
     done = set()
     if OUTPUT_FILE.exists():
         with open(OUTPUT_FILE) as f:
             results = json.load(f)
+        if args.queries:
+            # Remove old results for the requested queries so they get re-run
+            query_filter_set = set(int(q) - 1 for q in args.queries.split(","))
+            results = [r for r in results if r["query_idx"] not in query_filter_set]
         for r in results:
             done.add((r["query_idx"], r["round"]))
         print(f"Resumed {len(results)} existing records\n")
