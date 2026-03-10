@@ -20,11 +20,16 @@ from pathlib import Path
 import requests
 
 
-def prom_query(prom_url: str, query: str) -> float:
+def prom_query(prom_url: str, query: str,
+               ts: float = None) -> float:
+    """Query Prometheus, matching collect.py's approach."""
     try:
+        params = {"query": query}
+        if ts is not None:
+            params["time"] = ts
         r = requests.get(
             f"{prom_url}/api/v1/query",
-            params={"query": query}, timeout=5)
+            params=params, timeout=5)
         data = r.json()
         if data["status"] == "success" and data["data"]["result"]:
             val = float(data["data"]["result"][0]["value"][1])
@@ -100,9 +105,11 @@ def main():
     #   Scan: databend_query_scan_bytes_total{kind="Query"}
     cpu_metric = "sum(databend_process_cpu_seconds_total_total)"
     scan_metric = 'sum(databend_query_scan_bytes_total{kind="Query"})'
-    cpu_before = prom_query(args.prom_url, cpu_metric)
-    scan_before = prom_query(args.prom_url, scan_metric)
+    before_ts = time.time()
+    cpu_before = prom_query(args.prom_url, cpu_metric, ts=before_ts)
+    scan_before = prom_query(args.prom_url, scan_metric, ts=before_ts)
     prom_available = cpu_before > 0 or scan_before > 0
+    print(f"  [prom] before (ts={before_ts:.0f}): cpu={cpu_before:.2f}  scan={scan_before:.0f}")
 
     # Execute
     print(f"\nRunning {n} queries (concurrency={args.concurrency})...")
@@ -135,8 +142,10 @@ def main():
     if prom_available:
         print("Waiting 12s for Prometheus scrape...")
         time.sleep(12)
-    cpu_after = prom_query(args.prom_url, cpu_metric)
-    scan_after = prom_query(args.prom_url, scan_metric)
+    after_ts = time.time()
+    cpu_after = prom_query(args.prom_url, cpu_metric, ts=after_ts)
+    scan_after = prom_query(args.prom_url, scan_metric, ts=after_ts)
+    print(f"  [prom] after  (ts={after_ts:.0f}): cpu={cpu_after:.2f}  scan={scan_after:.0f}")
 
     total_cpu = cpu_after - cpu_before
     total_scan_bytes = scan_after - scan_before

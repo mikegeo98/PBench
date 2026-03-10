@@ -1,0 +1,19 @@
+{
+  "name": "confusable",
+  "n_queries": 13,
+  "n_distinct": 6,
+  "total_cpu_s": 1.0,
+  "total_scan_gb": 9.313225746154785e-10,
+  "avg_duration_s": 0.0,
+  "filter_ratio": 1.0,
+  "join_ratio": 1.0,
+  "agg_ratio": 1.0,
+  "sort_ratio": 1.0,
+  "telemetry_source": "prometheus",
+  "prometheus_cpu_delta_s": 1.0,
+  "prometheus_scan_delta_bytes": 1.0,
+  "metrics_cpu_s": 205.0,
+  "metrics_scan_gb": 9.61262931022793,
+  "client_duration_sum_s": 0,
+  "wall_clock_s": 0.08194470405578613
+}
