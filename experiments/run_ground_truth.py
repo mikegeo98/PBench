@@ -55,6 +55,9 @@ def main():
     p.add_argument("--prom-url", default="http://localhost:9091", help="Prometheus URL")
     p.add_argument("--concurrency", type=int, default=1, help="Max concurrent queries")
     p.add_argument("--output", default="experiments/results/", help="Output directory")
+    p.add_argument("--telemetry-source", choices=["metrics", "prometheus"], default="metrics",
+                   help="'metrics' = use pre-collected per-query metrics (ideal, deterministic); "
+                        "'prometheus' = use actual Prometheus deltas (noisy, affected by concurrency)")
     args = p.parse_args()
 
     with open(args.mix) as f:
@@ -123,46 +126,67 @@ def main():
     total_cpu = cpu_after - cpu_before
     total_scan_bytes = scan_after - scan_before
 
-    # Compute telemetry from per-query metrics (more reliable than Prometheus deltas
-    # when Prometheus scan counters are unavailable)
+    # Compute telemetry from per-query metrics (ideal, deterministic)
     metrics_cpu = sum(all_queries[i]["avg_cpu_time"] * c for i, c in ground_truth.items())
     metrics_scan = sum(all_queries[i]["avg_scan_bytes"] * c / (1024**3) for i, c in ground_truth.items())
     metrics_dur = sum(all_queries[i]["avg_duration"] * c for i, c in ground_truth.items())
     client_dur = sum(r["duration"] for r in results if r["status"] == "ok")
 
-    # Operator ratios
+    # Operator ratios (always from metrics — Prometheus doesn't track these)
     total_f = sum(all_queries[i].get("filter", 0) * c for i, c in ground_truth.items())
     total_j = sum(all_queries[i].get("join", 0) * c for i, c in ground_truth.items())
     total_a = sum(all_queries[i].get("agg", 0) * c for i, c in ground_truth.items())
     total_s = sum(all_queries[i].get("sort", 0) * c for i, c in ground_truth.items())
 
+    if args.telemetry_source == "prometheus":
+        # Use actual Prometheus deltas — affected by concurrency, caching, contention
+        use_cpu = total_cpu
+        use_scan = total_scan_bytes / (1024**3)
+        use_dur = client_dur / n  # avg client-side duration
+        source_label = "prometheus (actual)"
+    else:
+        # Use pre-collected per-query metrics — ideal, deterministic
+        use_cpu = metrics_cpu
+        use_scan = metrics_scan
+        use_dur = metrics_dur / n
+        source_label = "metrics (ideal)"
+
     telemetry = {
         "name": mix_name,
         "n_queries": n,
         "n_distinct": len(ground_truth),
-        "total_cpu_s": metrics_cpu,
-        "total_scan_gb": metrics_scan,
-        "avg_duration_s": metrics_dur / n,
+        "total_cpu_s": use_cpu,
+        "total_scan_gb": use_scan,
+        "avg_duration_s": use_dur,
         "filter_ratio": total_f / n,
         "join_ratio": total_j / n,
         "agg_ratio": total_a / n,
         "sort_ratio": total_s / n,
+        "telemetry_source": args.telemetry_source,
         "prometheus_cpu_delta_s": total_cpu,
         "prometheus_scan_delta_bytes": total_scan_bytes,
+        "metrics_cpu_s": metrics_cpu,
+        "metrics_scan_gb": metrics_scan,
         "client_duration_sum_s": client_dur,
         "wall_clock_s": run_elapsed,
     }
 
     print(f"\n{'=' * 60}")
-    print(f"OBSERVED TELEMETRY — {mix_name}")
+    print(f"OBSERVED TELEMETRY — {mix_name} [{source_label}]")
     print(f"{'=' * 60}")
-    print(f"  Total CPU:       {metrics_cpu:.2f}s")
-    print(f"  Total Scan:      {metrics_scan:.4f}GB")
-    print(f"  Avg Duration:    {metrics_dur / n:.3f}s")
+    print(f"  Total CPU:       {use_cpu:.2f}s")
+    print(f"  Total Scan:      {use_scan:.4f}GB")
+    print(f"  Avg Duration:    {use_dur:.3f}s")
     print(f"  Query count:     {n}")
     print(f"  Operators:       F={total_f/n:.3f} J={total_j/n:.3f} A={total_a/n:.3f} S={total_s/n:.3f}")
-    print(f"  Prom CPU delta:  {total_cpu:.2f}s")
-    print(f"  Client dur sum:  {client_dur:.2f}s")
+    if args.telemetry_source == "prometheus":
+        print(f"  --- vs ideal ---")
+        print(f"  Ideal CPU:       {metrics_cpu:.2f}s (delta: {(total_cpu - metrics_cpu)/max(metrics_cpu,0.01)*100:+.1f}%)")
+        print(f"  Ideal Scan:      {metrics_scan:.4f}GB (delta: {(use_scan - metrics_scan)/max(metrics_scan,0.001)*100:+.1f}%)")
+        print(f"  Ideal AvgDur:    {metrics_dur/n:.3f}s (delta: {(use_dur - metrics_dur/n)/max(metrics_dur/n,0.001)*100:+.1f}%)")
+    else:
+        print(f"  Prom CPU delta:  {total_cpu:.2f}s")
+        print(f"  Client dur sum:  {client_dur:.2f}s")
 
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)

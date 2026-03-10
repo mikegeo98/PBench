@@ -29,6 +29,9 @@ def main():
     p.add_argument("--secret", required=True, help="Secret mix JSON for comparison")
     p.add_argument("--count-limit", type=int, default=30, help="Max total queries for ILP")
     p.add_argument("--op-scale", type=int, default=100, help="Operator weight scale in objective")
+    p.add_argument("--noise", type=float, default=0.0,
+                   help="Add uniform noise ±N%% to telemetry (e.g. --noise 20 for ±20%%)")
+    p.add_argument("--seed", type=int, default=None, help="Random seed for noise")
     args = p.parse_args()
 
     # Must chdir so PBench-tool relative imports work
@@ -49,6 +52,22 @@ def main():
     ground_truth = {int(k): v for k, v in secret_data["mix"].items()}
     mix_name = telemetry.get("name", "unknown")
     n = telemetry["n_queries"]
+
+    # Apply noise to telemetry if requested
+    if args.noise > 0:
+        import random
+        rng = random.Random(args.seed)
+        pct = args.noise / 100.0
+        noise_keys = ["total_cpu_s", "total_scan_gb", "avg_duration_s",
+                       "filter_ratio", "join_ratio", "agg_ratio", "sort_ratio"]
+        print(f"  NOISE: ±{args.noise}% (seed={args.seed})")
+        for k in noise_keys:
+            if k in telemetry:
+                factor = 1.0 + rng.uniform(-pct, pct)
+                old_val = telemetry[k]
+                telemetry[k] *= factor
+                print(f"    {k}: {old_val:.4f} -> {telemetry[k]:.4f} (x{factor:.3f})")
+        print()
 
     # Build candidate pool
     candidates = []

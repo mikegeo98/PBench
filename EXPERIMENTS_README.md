@@ -549,7 +549,12 @@ python collect.py tpch20 --repeat 3 --timeout 300
 
 ### Step 1: Define a Secret Query Mix
 
-Create a file `experiments/ground_truth_mix.json` with a query mix to test. Each key is a 0-based query index (Q1=0, Q2=1, ..., Q22=21) and the value is the execution count.
+There are three ways to define the workload that PBench will try to recover.
+
+#### Step 1.0: Manual mix JSON (simplest)
+
+Create a file in `experiments/mixes/` with a query mix. Each key is a 0-based query
+index (Q1=0, Q2=1, ..., Q22=21) and the value is the execution count.
 
 Example mixes of increasing difficulty:
 
@@ -583,14 +588,88 @@ Example mixes of increasing difficulty:
 }
 ```
 
-Alternatively, you can skip writing a mix JSON and use existing workload generation:
+#### Step 1.1: Groundtruth sequential run
 
-- **Groundtruth sequential run**: Use `groundtruth/run_bench.py` with a query pool config
-  to run queries sequentially. The per-query telemetry is recorded via Prometheus, and you
-  can aggregate it into a single time-slot for ILP recovery.
-- **CAB baseline output**: Run CAB on a Snowset workload (`src/Baseline/do_baseline.py`),
-  take the output plan from `src/Baseline/output/`, and feed its aggregate telemetry
-  per time-slot to the recovery script.
+Use the groundtruth runner (`groundtruth/run_bench.py`) to execute all 22 TPC-H queries
+sequentially against Databend, collecting per-query Prometheus telemetry. Then aggregate
+the events into a single time-slot for ILP recovery.
+
+```bash
+# Create a config for SF20 sequential run
+cat > groundtruth/configs/tpch20g_seq.yml << 'EOF'
+run:
+  run_id: tpch20g-seq
+  output_root: groundtruth/output
+
+engine:
+  type: databend
+  host: localhost
+  port: 8000
+  default_database: default
+  prometheus_host: localhost
+  prometheus_port: 9091
+  prometheus_scrape_wait_s: 2.0
+
+workload:
+  benchmark: tpch
+  query_pool_path: src/Collect_metrics/metrics_witho/input/TPCH-tpch20g-sql-input.json
+
+execution:
+  mode: sequential
+  concurrency: 1
+  timeout_s: 600
+  seed: 42
+  selection_mode: as_is
+  max_queries: 22
+EOF
+
+# Run all 22 queries sequentially
+python groundtruth/run_bench.py --config groundtruth/configs/tpch20g_seq.yml
+```
+
+This produces `groundtruth/output/tpch20g-seq/output_events.jsonl` — one event per
+query with Prometheus-captured CPU, scan bytes, duration, and operator flags. To convert
+this into a mix JSON for the recovery script:
+
+```bash
+python experiments/events_to_mix.py \
+    --events groundtruth/output/tpch20g-seq/output_events.jsonl \
+    --output experiments/mixes/groundtruth_seq.json
+```
+
+The advantage of this approach is that every query gets real observed telemetry from
+Prometheus, rather than relying on pre-collected metrics averages.
+
+#### Step 1.2: CAB baseline stream (first 5 minutes)
+
+The `groundtruth/cab/` directory contains 5 pre-generated CAB workload streams, each
+spanning ~24 hours of simulated Snowflake traffic. The `query_id` field in each entry
+maps to a TPC-H query number (1-indexed). Each entry also carries `arguments` for
+parameterized queries and a `start` timestamp in milliseconds.
+
+To extract a 5-minute window from a CAB stream and convert it to a mix:
+
+```bash
+python experiments/cab_to_mix.py \
+    --stream groundtruth/cab/query_stream_3.json \
+    --minutes 5 \
+    --output experiments/mixes/cab_stream3_5min.json
+```
+
+Stream 3's first 5 minutes contains a manageable 13 queries across 11 distinct TPC-H
+templates:
+
+| Stream | First 5 min | Distinct | Example distribution |
+|--------|-------------|----------|---------------------|
+| 0 | 9 queries | 7 | Q12 x3, Q1/Q2/Q4/Q17/Q18/Q19 x1 each |
+| 1 | 101 queries | 19 | Heavy mix, all templates represented |
+| 2 | 51 queries | 16 | Q4 x7, Q2 x6, Q3/Q18/Q22 x5 each |
+| 3 | 13 queries | 11 | Q4/Q19 x2, 9 others x1 each |
+| 4 | 28 queries | 13 | Q18 x5, Q1/Q15/Q16 x3 each |
+
+**Note**: CAB streams use query IDs 1-22 (1-indexed TPC-H numbers). The `cab_to_mix.py`
+script converts these to 0-indexed for the ILP solver. Some CAB query IDs (e.g., 23)
+may not map to standard TPC-H — these are skipped with a warning.
 
 ### Step 2: Run the Query Mix and Collect Telemetry
 
