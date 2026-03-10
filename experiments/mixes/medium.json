@@ -1,0 +1,6 @@
+{
+    "name": "medium",
+    "description": "5 distinct queries including similar-profile pairs",
+    "mix": {"0": 3, "8": 2, "12": 1, "17": 2, "20": 1},
+    "comment": "Q1 x3, Q9 x2, Q13 x1, Q18 x2, Q21 x1"
+}
