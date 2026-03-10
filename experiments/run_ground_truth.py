@@ -22,12 +22,17 @@ import requests
 
 def prom_query(prom_url: str, query: str) -> float:
     try:
-        r = requests.get(f"{prom_url}/api/v1/query", params={"query": query}, timeout=5)
+        r = requests.get(
+            f"{prom_url}/api/v1/query",
+            params={"query": query}, timeout=5)
         data = r.json()
         if data["status"] == "success" and data["data"]["result"]:
-            return float(data["data"]["result"][0]["value"][1])
-    except Exception:
-        pass
+            val = float(data["data"]["result"][0]["value"][1])
+            return val
+        else:
+            print(f"  [prom] no result for: {query}")
+    except Exception as e:
+        print(f"  [prom] error for {query}: {e}")
     return 0.0
 
 
