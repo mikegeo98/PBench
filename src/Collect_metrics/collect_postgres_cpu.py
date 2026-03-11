@@ -116,17 +116,10 @@ def run_query_with_cpu(conn, sql, timeout_s=120):
         result["explain_total_ms"] = result["explain_exec_ms"] + result["explain_plan_ms"]
 
         # Buffer stats → scanned bytes
-        def sum_buffers(node):
-            hit = node.get("Shared Hit Blocks", 0)
-            read = node.get("Shared Read Blocks", 0)
-            for child in node.get("Plans", []):
-                ch, cr = sum_buffers(child)
-                hit += ch
-                read += cr
-            return hit, read
-
+        # Root node already includes cumulative buffer stats from all children
         root = plan.get("Plan", {})
-        hit, read = sum_buffers(root)
+        hit = root.get("Shared Hit Blocks", 0)
+        read = root.get("Shared Read Blocks", 0)
         result["scanned_bytes"] = (hit + read) * PG_BLOCK_SIZE
 
         result["ok"] = True

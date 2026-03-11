@@ -158,6 +158,9 @@ echo "Step 3: Loading data..."
 
 TABLES="region nation supplier part partsupp customer orders lineitem"
 
+CHUNK_LINES=10000000  # 10M lines per chunk for large tables
+CHUNK_TABLES="lineitem orders"  # tables to load in chunks
+
 for t in ${TABLES}; do
     TBL_FILE="${DATA_DIR}/${t}.tbl"
     if [ ! -f "${TBL_FILE}" ]; then
@@ -166,19 +169,37 @@ for t in ${TABLES}; do
     fi
 
     SIZE=$(ls -lh "${TBL_FILE}" | awk '{print $5}')
-    echo -n "  ${t} (${SIZE})... "
+    TOTAL_LINES=$(wc -l < "${TBL_FILE}")
 
     START=$(date +%s.%N)
 
-    # PostgreSQL COPY command - TPC-H .tbl files use | as delimiter with trailing |
-    # Strip trailing | before importing
-    sed 's/|$//' "${TBL_FILE}" | psql ${CONN_ARGS} -d "${DATABASE}" -c "\COPY ${t} FROM STDIN WITH (FORMAT csv, DELIMITER '|')" 2>/dev/null
+    if echo "${CHUNK_TABLES}" | grep -qw "${t}" && [ "${TOTAL_LINES}" -gt "${CHUNK_LINES}" ]; then
+        # Chunked load for large tables
+        NCHUNKS=$(( (TOTAL_LINES + CHUNK_LINES - 1) / CHUNK_LINES ))
+        echo "  ${t} (${SIZE}, ${TOTAL_LINES} lines) — loading in ${NCHUNKS} chunks..."
+        LOADED=0
+        CHUNK=1
+        while [ "${LOADED}" -lt "${TOTAL_LINES}" ]; do
+            REMAINING=$((TOTAL_LINES - LOADED))
+            THIS_CHUNK=$((REMAINING < CHUNK_LINES ? REMAINING : CHUNK_LINES))
+            echo -n "    chunk ${CHUNK}/${NCHUNKS} (lines $((LOADED+1))-$((LOADED+THIS_CHUNK)))... "
+            sed -n "$((LOADED+1)),$((LOADED+THIS_CHUNK))p" "${TBL_FILE}" | sed 's/|$//' | \
+                psql ${CONN_ARGS} -d "${DATABASE}" -c "\COPY ${t} FROM STDIN WITH (FORMAT csv, DELIMITER '|')" 2>/dev/null
+            LOADED=$((LOADED + THIS_CHUNK))
+            echo "OK"
+            CHUNK=$((CHUNK + 1))
+        done
+    else
+        # Single-pass load for smaller tables
+        echo -n "  ${t} (${SIZE})... "
+        sed 's/|$//' "${TBL_FILE}" | psql ${CONN_ARGS} -d "${DATABASE}" -c "\COPY ${t} FROM STDIN WITH (FORMAT csv, DELIMITER '|')" 2>/dev/null
+    fi
 
     END=$(date +%s.%N)
     ELAPSED=$(echo "$END - $START" | bc)
 
     COUNT=$(psql ${CONN_ARGS} -d "${DATABASE}" -t -c "SELECT COUNT(*) FROM ${t};" | tr -d ' ')
-    echo "${COUNT} rows in ${ELAPSED}s"
+    echo "  ${t}: ${COUNT} rows in ${ELAPSED}s"
 done
 
 # Verify
