@@ -1,0 +1,24 @@
+{
+  "name": "cab_query_stream_3_5min",
+  "description": "First 5.0 min of query_stream_3 (13 queries, 10 distinct TPC-H templates)",
+  "mix": {
+    "0": 1,
+    "1": 1,
+    "2": 1,
+    "3": 2,
+    "5": 1,
+    "9": 1,
+    "11": 1,
+    "15": 1,
+    "18": 2,
+    "21": 1
+  },
+  "source": "groundtruth/cab/query_stream_3.json",
+  "window_ms": [
+    6027,
+    306027
+  ],
+  "skipped_query_ids": [
+    23
+  ]
+}

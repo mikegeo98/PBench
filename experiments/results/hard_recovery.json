@@ -1,0 +1,29 @@
+{
+  "name": "hard",
+  "ground_truth": {
+    "Q1": 2,
+    "Q3": 1,
+    "Q5": 2,
+    "Q7": 1,
+    "Q9": 3,
+    "Q10": 1,
+    "Q15": 2,
+    "Q18": 1
+  },
+  "ilp_guess": {
+    "Q1": 2,
+    "Q3": 1,
+    "Q5": 2,
+    "Q7": 1,
+    "Q9": 3,
+    "Q10": 1,
+    "Q15": 2,
+    "Q18": 1
+  },
+  "exact_matches": 8,
+  "close_matches": 0,
+  "wrong_matches": 0,
+  "objective": 0.0,
+  "cpu_error_pct": 0.0,
+  "scan_error_pct": 0.0
+}

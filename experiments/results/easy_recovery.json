@@ -1,0 +1,19 @@
+{
+  "name": "easy",
+  "ground_truth": {
+    "Q1": 5,
+    "Q9": 3,
+    "Q6": 2
+  },
+  "ilp_guess": {
+    "Q1": 5,
+    "Q6": 2,
+    "Q9": 3
+  },
+  "exact_matches": 3,
+  "close_matches": 0,
+  "wrong_matches": 0,
+  "objective": 0.0,
+  "cpu_error_pct": 0.0,
+  "scan_error_pct": 0.0
+}

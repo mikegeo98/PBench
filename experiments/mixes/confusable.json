@@ -1,0 +1,13 @@
+{
+  "name": "confusable",
+  "description": "Adversarial mix: uses query pairs with similar CPU times to confuse ILP",
+  "mix": {
+    "3": 2,
+    "6": 2,
+    "9": 3,
+    "12": 2,
+    "14": 2,
+    "19": 2
+  },
+  "notes": "Q4(cpu=7) vs Q7(cpu=11); Q10(cpu=21) vs Q13(cpu=22); Q15(cpu=15) vs Q20(cpu=16)"
+}

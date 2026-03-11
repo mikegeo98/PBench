@@ -58,6 +58,7 @@ class QueryStructure:
     has_or_predicate: bool = False
     num_predicates: int = 0
     num_aggregations: int = 0
+    num_sorts: int = 0
     tables: list = field(default_factory=list)
     query_type: str = ""  # "scan-heavy", "join-heavy", "subquery-nested", etc.
 
@@ -80,7 +81,7 @@ class QueryStructure:
                 self.has_union, self.has_case_when, self.has_having,
                 self.has_window_func, self.has_correlated_subquery,
                 self.has_self_join, self.has_left_join, self.has_or_predicate,
-                self.num_predicates, self.num_aggregations)
+                self.num_predicates, self.num_aggregations, self.num_sorts)
 
 
 def extract_structure(sql: str) -> dict:
@@ -159,6 +160,7 @@ def extract_structure(sql: str) -> dict:
         'has_or_predicate': bool(re.search(r'\bWHERE\b.*\bOR\b', sql_upper, re.DOTALL)),
         'num_predicates': num_predicates,
         'num_aggregations': len(agg_funcs),
+        'num_sorts': len(re.findall(r'\bORDER\s+BY\b', sql_upper)),
     }
 
 
@@ -225,6 +227,8 @@ def structural_distance(a: QueryStructure, b: QueryStructure) -> float:
     score += abs(a.num_predicates - b.num_predicates) * 0.5
     # Aggregation count difference
     score += abs(a.num_aggregations - b.num_aggregations) * 1.0
+    # Sort count difference
+    score += abs(a.num_sorts - b.num_sorts) * 1.0
     # Boolean feature differences (each mismatch = 2 points)
     bool_features = [
         'has_cte', 'has_exists', 'has_in_subquery', 'has_union',
@@ -323,7 +327,7 @@ def print_collision(idx: int, a: QueryStructure, b: QueryStructure,
         print(f"    Type:       {q.query_type}")
         print(f"    SQL:        {truncate_sql(q.query_text)}")
         print(f"    Tables:     {q.num_tables} ({', '.join(q.tables[:6])}{'...' if len(q.tables) > 6 else ''})")
-        print(f"    Joins:      {q.num_joins}    Subqueries: {q.num_subqueries}    Predicates: {q.num_predicates}")
+        print(f"    Joins:      {q.num_joins}    Subqueries: {q.num_subqueries}    Predicates: {q.num_predicates}    Sorts: {q.num_sorts}")
         print(f"    Aggregates: {q.num_aggregations}")
         features = []
         if q.has_cte: features.append("CTE")

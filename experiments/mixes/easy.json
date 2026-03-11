@@ -1,0 +1,6 @@
+{
+    "name": "easy",
+    "description": "3 distinct queries, clear signatures",
+    "mix": {"0": 5, "8": 3, "5": 2},
+    "comment": "Q1(filter+agg+sort, no join) x5, Q9(all ops, heavy CPU) x3, Q6(filter+agg only) x2"
+}
