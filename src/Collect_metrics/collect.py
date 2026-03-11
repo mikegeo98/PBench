@@ -315,26 +315,17 @@ def record_metrics_postgres(config, query, database):
             planning_time_ms = plan.get("Planning Time", 0)
             total_time_ms = execution_time_ms + planning_time_ms
 
-            # Extract buffer stats from the plan
-            # We need to recursively sum all buffer usage
-            def extract_buffers(node):
-                buffers = {
-                    "shared_hit": node.get("Shared Hit Blocks", 0),
-                    "shared_read": node.get("Shared Read Blocks", 0),
-                    "local_hit": node.get("Local Hit Blocks", 0),
-                    "local_read": node.get("Local Read Blocks", 0),
-                    "temp_read": node.get("Temp Read Blocks", 0),
-                    "temp_written": node.get("Temp Written Blocks", 0),
-                }
-                # Recurse into child plans
-                for child in node.get("Plans", []):
-                    child_buffers = extract_buffers(child)
-                    for k in buffers:
-                        buffers[k] += child_buffers[k]
-                return buffers
-
+            # Extract buffer stats from the root plan node
+            # Root node already includes cumulative buffer stats from all children
             root_plan = plan.get("Plan", {})
-            buffers = extract_buffers(root_plan)
+            buffers = {
+                "shared_hit": root_plan.get("Shared Hit Blocks", 0),
+                "shared_read": root_plan.get("Shared Read Blocks", 0),
+                "local_hit": root_plan.get("Local Hit Blocks", 0),
+                "local_read": root_plan.get("Local Read Blocks", 0),
+                "temp_read": root_plan.get("Temp Read Blocks", 0),
+                "temp_written": root_plan.get("Temp Written Blocks", 0),
+            }
 
             # Total blocks accessed (read from disk + hit in cache)
             total_blocks = (buffers["shared_hit"] + buffers["shared_read"] +
