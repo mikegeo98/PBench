@@ -1,0 +1,16 @@
+{
+  "name": "easy",
+  "n_queries": 10,
+  "n_distinct": 3,
+  "total_cpu_s": 692.0,
+  "total_scan_gb": 73.21438123472035,
+  "avg_duration_s": 5.2999502420425415,
+  "filter_ratio": 1.0,
+  "join_ratio": 0.3,
+  "agg_ratio": 1.0,
+  "sort_ratio": 0.8,
+  "prometheus_cpu_delta_s": 0.0019850000000012358,
+  "prometheus_scan_delta_bytes": 0.0,
+  "client_duration_sum_s": 0,
+  "wall_clock_s": 0.05947518348693848
+}

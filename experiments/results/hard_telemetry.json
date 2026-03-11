@@ -1,0 +1,16 @@
+{
+  "name": "hard",
+  "n_queries": 13,
+  "n_distinct": 8,
+  "total_cpu_s": 1113.0,
+  "total_scan_gb": 59.85876821819693,
+  "avg_duration_s": 6.606889284574068,
+  "filter_ratio": 1.0,
+  "join_ratio": 0.8461538461538461,
+  "agg_ratio": 1.0,
+  "sort_ratio": 1.0,
+  "prometheus_cpu_delta_s": 0.003797999999999746,
+  "prometheus_scan_delta_bytes": 0.0,
+  "client_duration_sum_s": 0,
+  "wall_clock_s": 0.08570623397827148
+}
